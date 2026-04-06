@@ -13,6 +13,7 @@ Bugs targeted:
  10. No max content size
  11. Cache writes not atomic
 """
+
 from __future__ import annotations
 
 import sys
@@ -24,9 +25,11 @@ import httpx
 # Bug 1: cache dir should not default to /tmp on Windows
 # ---------------------------------------------------------------------------
 
+
 class TestCrossPlatformCacheDir:
     def test_default_cache_dir_is_platform_appropriate(self):
         from pulldown import PageCache
+
         c = PageCache()  # no arg -> default
         # Must NOT be /tmp/pulldown-cache on Windows
         if sys.platform == "win32":
@@ -52,16 +55,17 @@ class TestCrossPlatformCacheDir:
 # Bug 5: crawler should fetch each URL exactly once
 # ---------------------------------------------------------------------------
 
+
 class TestCrawlerNoDoubleFetch:
     async def test_each_url_fetched_once(self, monkeypatch):
         from pulldown import crawl
 
         pages = {
-            "/": '<html><head><title>Home</title></head><body>'
-                 '<h1>Home</h1><p>Welcome lots of content here yes indeed.</p>'
-                 '<a href="/a">A</a></body></html>',
-            "/a": '<html><head><title>A</title></head><body>'
-                  '<h1>A</h1><p>Content on page A enough for extraction.</p></body></html>',
+            "/": "<html><head><title>Home</title></head><body>"
+            "<h1>Home</h1><p>Welcome lots of content here yes indeed.</p>"
+            '<a href="/a">A</a></body></html>',
+            "/a": "<html><head><title>A</title></head><body>"
+            "<h1>A</h1><p>Content on page A enough for extraction.</p></body></html>",
         }
         hits: dict[str, int] = {}
 
@@ -73,7 +77,8 @@ class TestCrawlerNoDoubleFetch:
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -88,19 +93,20 @@ class TestCrawlerNoDoubleFetch:
 # Bug 6: urls_discovered counts only new unique URLs
 # ---------------------------------------------------------------------------
 
+
 class TestCrawlerDiscoveryCount:
     async def test_discovered_count_is_unique(self, monkeypatch):
         from pulldown import crawl
 
         # Site where /a and /b both link to /c — /c should be discovered only once
         pages = {
-            "/": '<html><body><h1>Home</h1><p>Intro text here with enough words.</p>'
-                 '<a href="/a">A</a> <a href="/b">B</a></body></html>',
-            "/a": '<html><body><h1>A</h1><p>Page A text with enough words indeed.</p>'
-                  '<a href="/c">C</a></body></html>',
-            "/b": '<html><body><h1>B</h1><p>Page B text with enough words, really.</p>'
-                  '<a href="/c">C</a></body></html>',
-            "/c": '<html><body><h1>C</h1><p>Page C text with enough words here.</p></body></html>',
+            "/": "<html><body><h1>Home</h1><p>Intro text here with enough words.</p>"
+            '<a href="/a">A</a> <a href="/b">B</a></body></html>',
+            "/a": "<html><body><h1>A</h1><p>Page A text with enough words indeed.</p>"
+            '<a href="/c">C</a></body></html>',
+            "/b": "<html><body><h1>B</h1><p>Page B text with enough words, really.</p>"
+            '<a href="/c">C</a></body></html>',
+            "/c": "<html><body><h1>C</h1><p>Page C text with enough words here.</p></body></html>",
         }
 
         def handler(request):
@@ -109,7 +115,8 @@ class TestCrawlerDiscoveryCount:
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -129,6 +136,7 @@ class TestCrawlerDiscoveryCount:
 # ---------------------------------------------------------------------------
 # Bug 7: link extraction should use lxml, handle edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestLinkExtraction:
     def test_extracts_from_anchor_tags_only(self):
@@ -153,6 +161,7 @@ class TestLinkExtraction:
 
     def test_strips_fragment(self):
         from pulldown.crawl import _extract_links
+
         html = '<a href="/page#section">hi</a>'
         links = _extract_links(html, "http://x.com/")
         assert "http://x.com/page" in links
@@ -160,13 +169,14 @@ class TestLinkExtraction:
 
     def test_ignores_non_http_schemes(self):
         from pulldown.crawl import _extract_links
-        html = '''
+
+        html = """
         <a href="mailto:a@b.com">m</a>
         <a href="tel:+1234">t</a>
         <a href="javascript:void(0)">j</a>
         <a href="data:text/html,hi">d</a>
         <a href="/good">g</a>
-        '''
+        """
         links = _extract_links(html, "http://x.com/")
         assert links == {"http://x.com/good"}
 
@@ -175,15 +185,17 @@ class TestLinkExtraction:
 # Bug 8: MCP HTTP transport must default to localhost
 # ---------------------------------------------------------------------------
 
+
 class TestMcpServerDefaults:
     def test_mcp_default_host_is_loopback(self):
         """The MCP server must NOT default to 0.0.0.0 for HTTP transport."""
         # We read the source and check it defaults to 127.0.0.1 or localhost
         from pathlib import Path
+
         src = Path(__file__).parent.parent / "src" / "pulldown" / "mcp_server.py"
         text = src.read_text()
         # The default host should be loopback
-        assert "0.0.0.0" not in text or 'MCP_HOST' in text, (
+        assert "0.0.0.0" not in text or "MCP_HOST" in text, (
             "MCP server must not bind 0.0.0.0 by default; require env opt-in"
         )
 
@@ -192,27 +204,34 @@ class TestMcpServerDefaults:
 # Bug 9: SSRF guard — private/loopback/metadata addresses blocked by default
 # ---------------------------------------------------------------------------
 
+
 class TestSsrfGuards:
     async def test_loopback_blocked_by_default(self):
         from pulldown import fetch
+
         result = await fetch("http://127.0.0.1/")
         assert not result.ok
-        assert result.error and ("blocked" in result.error.lower() or "private" in result.error.lower())
+        assert result.error and (
+            "blocked" in result.error.lower() or "private" in result.error.lower()
+        )
 
     async def test_metadata_service_blocked_by_default(self):
         from pulldown import fetch
+
         result = await fetch("http://169.254.169.254/latest/meta-data/")
         assert not result.ok
         assert result.error is not None
 
     async def test_rfc1918_blocked_by_default(self):
         from pulldown import fetch
+
         result = await fetch("http://10.0.0.1/")
         assert not result.ok
         assert result.error is not None
 
     async def test_file_scheme_blocked(self):
         from pulldown import fetch
+
         result = await fetch("file:///etc/passwd")
         assert not result.ok
         assert result.error is not None
@@ -222,13 +241,17 @@ class TestSsrfGuards:
         from pulldown import fetch
 
         def handler(request):
-            return httpx.Response(200, html="<html><title>ok</title><body>"
-                                              "<p>ok ok ok ok content here enough.</p></body></html>")
+            return httpx.Response(
+                200,
+                html="<html><title>ok</title><body>"
+                "<p>ok ok ok ok content here enough.</p></body></html>",
+            )
 
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -240,6 +263,7 @@ class TestSsrfGuards:
 # Bug 10: max content size
 # ---------------------------------------------------------------------------
 
+
 class TestMaxContentSize:
     async def test_rejects_oversized_response(self, monkeypatch):
         from pulldown import fetch
@@ -248,26 +272,33 @@ class TestMaxContentSize:
 
         def handler(request):
             return httpx.Response(
-                200, html=big,
+                200,
+                html=big,
                 headers={"Content-Length": str(len(big))},
             )
 
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
         result = await fetch("http://example.com/", max_bytes=1000)
         assert not result.ok
         assert result.error is not None
-        assert "size" in result.error.lower() or "large" in result.error.lower() or "bytes" in result.error.lower()
+        assert (
+            "size" in result.error.lower()
+            or "large" in result.error.lower()
+            or "bytes" in result.error.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
 # Bug 11: cache writes should be atomic
 # ---------------------------------------------------------------------------
+
 
 class TestAtomicCacheWrites:
     def test_put_writes_atomically(self, tmp_cache_dir, monkeypatch):

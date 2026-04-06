@@ -1,21 +1,25 @@
 """Tests for transient-error retry logic."""
+
 from __future__ import annotations
 
 import httpx
 
 from pulldown import fetch
 
-HTML_OK = "<html><head><title>OK</title></head><body><article>" \
-          "<p>Recovered content with enough body text for extraction here.</p>" \
-          "<p>Second paragraph for trafilatura happiness and extraction.</p>" \
-          "</article></body></html>"
+HTML_OK = (
+    "<html><head><title>OK</title></head><body><article>"
+    "<p>Recovered content with enough body text for extraction here.</p>"
+    "<p>Second paragraph for trafilatura happiness and extraction.</p>"
+    "</article></body></html>"
+)
 
 
 def _patch(monkeypatch, handler):
     transport = httpx.MockTransport(handler)
     orig = httpx.AsyncClient
     monkeypatch.setattr(
-        httpx, "AsyncClient",
+        httpx,
+        "AsyncClient",
         lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
     )
 

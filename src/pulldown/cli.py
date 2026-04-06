@@ -37,10 +37,12 @@ def main():
 # get subcommand (primary)
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.argument("url")
 @click.option(
-    "--detail", "-d",
+    "--detail",
+    "-d",
     type=click.Choice(["minimal", "readable", "full", "raw"]),
     default="readable",
     help="Extraction detail level.",
@@ -55,16 +57,34 @@ def main():
 @click.option("--cache-dir", type=str, default=None, help="Enable caching with this directory.")
 @click.option("--cache-ttl", type=int, default=3600, help="Cache TTL in seconds.")
 @click.option("--no-verify", is_flag=True, help="Disable SSL verification (dangerous).")
-@click.option("--max-bytes", type=int, default=DEFAULT_MAX_BYTES,
-              help="Maximum response size in bytes.")
-@click.option("--allow-private", is_flag=True,
-              help="Allow fetching private/loopback addresses (dangerous).")
+@click.option(
+    "--max-bytes", type=int, default=DEFAULT_MAX_BYTES, help="Maximum response size in bytes."
+)
+@click.option(
+    "--allow-private", is_flag=True, help="Allow fetching private/loopback addresses (dangerous)."
+)
 @click.option("--json-output", "-j", is_flag=True, help="Output as JSON.")
 @click.option("--meta", "-m", is_flag=True, help="Include metadata in output.")
 @click.option("--output", "-o", type=click.Path(), default=None, help="Write output to file.")
-def get(url, detail, render, scroll, wait, timeout, proxy, header, cookie,
-        cache_dir, cache_ttl, no_verify, max_bytes, allow_private,
-        json_output, meta, output):
+def get(
+    url,
+    detail,
+    render,
+    scroll,
+    wait,
+    timeout,
+    proxy,
+    header,
+    cookie,
+    cache_dir,
+    cache_ttl,
+    no_verify,
+    max_bytes,
+    allow_private,
+    json_output,
+    meta,
+    output,
+):
     """Fetch a single URL and extract clean Markdown."""
     from .cache import PageCache
     from .core import fetch as _fetch
@@ -88,21 +108,23 @@ def get(url, detail, render, scroll, wait, timeout, proxy, header, cookie,
 
     cache = PageCache(cache_dir, ttl=cache_ttl) if cache_dir else None
 
-    result = _run(_fetch(
-        url,
-        detail=detail,
-        render=render,
-        headers=headers if headers else None,
-        cookies=cookies if cookies else None,
-        proxy=proxy,
-        timeout=timeout,
-        verify_ssl=not no_verify,
-        max_bytes=max_bytes,
-        allow_private_addresses=allow_private,
-        render_wait_ms=wait,
-        render_scroll_count=scroll,
-        cache=cache,
-    ))
+    result = _run(
+        _fetch(
+            url,
+            detail=detail,
+            render=render,
+            headers=headers if headers else None,
+            cookies=cookies if cookies else None,
+            proxy=proxy,
+            timeout=timeout,
+            verify_ssl=not no_verify,
+            max_bytes=max_bytes,
+            allow_private_addresses=allow_private,
+            render_wait_ms=wait,
+            render_scroll_count=scroll,
+            cache=cache,
+        )
+    )
 
     if json_output:
         out = {
@@ -149,9 +171,12 @@ def get(url, detail, render, scroll, wait, timeout, proxy, header, cookie,
 # crawl subcommand
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.argument("start_url")
-@click.option("--detail", "-d", type=click.Choice(["minimal", "readable", "full", "raw"]), default="readable")
+@click.option(
+    "--detail", "-d", type=click.Choice(["minimal", "readable", "full", "raw"]), default="readable"
+)
 @click.option("--max-pages", type=int, default=50, help="Max pages to fetch.")
 @click.option("--max-depth", type=int, default=3, help="Max link depth.")
 @click.option("--concurrency", "-c", type=int, default=3, help="Concurrent fetches.")
@@ -166,34 +191,59 @@ def get(url, detail, render, scroll, wait, timeout, proxy, header, cookie,
 @click.option("--ignore-robots", is_flag=True, help="Do not consult robots.txt.")
 @click.option("--delay-ms", type=int, default=0, help="Per-domain delay in ms.")
 @click.option("--json-output", "-j", is_flag=True)
-@click.option("--output", "-o", type=click.Path(), default=None, help="Write combined output to file.")
-@click.option("--output-dir", type=click.Path(), default=None, help="Write each page to a separate file in this dir.")
-def crawl(start_url, detail, max_pages, max_depth, concurrency, render,
-          timeout, proxy, no_verify, allow_private, max_bytes,
-          include, exclude, ignore_robots, delay_ms,
-          json_output, output, output_dir):
+@click.option(
+    "--output", "-o", type=click.Path(), default=None, help="Write combined output to file."
+)
+@click.option(
+    "--output-dir",
+    type=click.Path(),
+    default=None,
+    help="Write each page to a separate file in this dir.",
+)
+def crawl(
+    start_url,
+    detail,
+    max_pages,
+    max_depth,
+    concurrency,
+    render,
+    timeout,
+    proxy,
+    no_verify,
+    allow_private,
+    max_bytes,
+    include,
+    exclude,
+    ignore_robots,
+    delay_ms,
+    json_output,
+    output,
+    output_dir,
+):
     """Crawl a site starting from START_URL and extract all pages."""
     import os
 
     from .crawl import crawl as _crawl
 
-    result = _run(_crawl(
-        start_url,
-        detail=detail,
-        max_pages=max_pages,
-        max_depth=max_depth,
-        concurrency=concurrency,
-        render=render,
-        timeout=timeout,
-        proxy=proxy,
-        verify_ssl=not no_verify,
-        max_bytes=max_bytes,
-        allow_private_addresses=allow_private,
-        include_pattern=include,
-        exclude_pattern=exclude,
-        respect_robots=not ignore_robots,
-        per_domain_delay_ms=delay_ms,
-    ))
+    result = _run(
+        _crawl(
+            start_url,
+            detail=detail,
+            max_pages=max_pages,
+            max_depth=max_depth,
+            concurrency=concurrency,
+            render=render,
+            timeout=timeout,
+            proxy=proxy,
+            verify_ssl=not no_verify,
+            max_bytes=max_bytes,
+            allow_private_addresses=allow_private,
+            include_pattern=include,
+            exclude_pattern=exclude,
+            respect_robots=not ignore_robots,
+            per_domain_delay_ms=delay_ms,
+        )
+    )
 
     click.echo(str(result), err=True)
 
@@ -248,9 +298,12 @@ def crawl(start_url, detail, max_pages, max_depth, concurrency, render,
 # bench subcommand
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.argument("urls", nargs=-1, required=True)
-@click.option("--detail", "-d", type=click.Choice(["minimal", "readable", "full", "raw"]), default="readable")
+@click.option(
+    "--detail", "-d", type=click.Choice(["minimal", "readable", "full", "raw"]), default="readable"
+)
 @click.option("--render", "-r", is_flag=True)
 @click.option("--runs", type=int, default=3, help="Number of benchmark runs.")
 @click.option("--concurrency", "-c", type=int, default=5)
@@ -262,16 +315,18 @@ def bench(urls, detail, render, runs, concurrency, timeout, no_verify, allow_pri
     """Benchmark fetch+extract throughput."""
     from .benchmark import benchmark as _benchmark
 
-    result = _run(_benchmark(
-        urls,
-        detail=detail,
-        render=render,
-        runs=runs,
-        concurrency=concurrency,
-        timeout=timeout,
-        verify_ssl=not no_verify,
-        allow_private_addresses=allow_private,
-    ))
+    result = _run(
+        _benchmark(
+            urls,
+            detail=detail,
+            render=render,
+            runs=runs,
+            concurrency=concurrency,
+            timeout=timeout,
+            verify_ssl=not no_verify,
+            allow_private_addresses=allow_private,
+        )
+    )
 
     if json_output:
         click.echo(json.dumps(result.summary(), indent=2))
@@ -283,12 +338,14 @@ def bench(urls, detail, render, runs, concurrency, timeout, no_verify, allow_pri
 # cache subcommand
 # ---------------------------------------------------------------------------
 
+
 @main.command("cache")
 @click.argument("action", type=click.Choice(["stats", "clear"]))
 @click.option("--cache-dir", type=str, default=None)
 def cache_cmd(action, cache_dir):
     """Manage the page cache."""
     from .cache import PageCache
+
     cache = PageCache(cache_dir)
 
     if action == "stats":

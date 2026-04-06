@@ -1,22 +1,26 @@
 """Tests for ETag / Last-Modified conditional caching."""
+
 from __future__ import annotations
 
 import httpx
 
 from pulldown import PageCache, fetch
 
-HTML = ("<html><head><title>Thing</title></head><body>"
-        "<article><p>Plenty of body text here to satisfy the extractor, "
-        "enough sentences for trafilatura to be happy about length.</p>"
-        "<p>Second paragraph with yet more content to round things out.</p>"
-        "</article></body></html>")
+HTML = (
+    "<html><head><title>Thing</title></head><body>"
+    "<article><p>Plenty of body text here to satisfy the extractor, "
+    "enough sentences for trafilatura to be happy about length.</p>"
+    "<p>Second paragraph with yet more content to round things out.</p>"
+    "</article></body></html>"
+)
 
 
 def _patched_client(monkeypatch, handler):
     transport = httpx.MockTransport(handler)
     orig = httpx.AsyncClient
     monkeypatch.setattr(
-        httpx, "AsyncClient",
+        httpx,
+        "AsyncClient",
         lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
     )
 
@@ -24,6 +28,7 @@ def _patched_client(monkeypatch, handler):
 class TestValidatorCache:
     async def test_etag_stored_on_fetch(self, tmp_cache_dir, monkeypatch):
         """First fetch should capture ETag into the cache."""
+
         def handler(request):
             return httpx.Response(200, html=HTML, headers={"ETag": '"v1"'})
 
@@ -39,7 +44,8 @@ class TestValidatorCache:
     async def test_last_modified_stored(self, tmp_cache_dir, monkeypatch):
         def handler(request):
             return httpx.Response(
-                200, html=HTML,
+                200,
+                html=HTML,
                 headers={"Last-Modified": "Wed, 21 Oct 2015 07:28:00 GMT"},
             )
 
@@ -92,6 +98,7 @@ class TestValidatorCache:
         cache_stale = PageCache(tmp_cache_dir, ttl=0)
         # Sleep briefly so the entry is stale
         import time
+
         time.sleep(0.01)
         removed = cache_stale.prune_expired()
         assert removed == 1

@@ -38,6 +38,7 @@ logger = logging.getLogger("pulldown")
 @dataclass
 class CrawlResult:
     """Result of a bounded site crawl."""
+
     start_url: str
     pages: list[FetchResult] = field(default_factory=list)
     urls_discovered: int = 0
@@ -69,6 +70,7 @@ class CrawlResult:
 # URL helpers
 # ---------------------------------------------------------------------------
 
+
 def _same_subpath(base_url: str, candidate_url: str) -> bool:
     """Check if candidate is under the same domain and path prefix."""
     base = urlparse(base_url)
@@ -85,12 +87,35 @@ def _same_subpath(base_url: str, candidate_url: str) -> bool:
     return cand_path == base_path or cand_path.startswith(base_path + "/")
 
 
-_SKIP_EXTENSIONS = frozenset((
-    ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp",
-    ".mp3", ".mp4", ".avi", ".mov", ".zip", ".tar", ".gz",
-    ".css", ".js", ".woff", ".woff2", ".ttf", ".eot", ".ico",
-    ".xml", ".json", ".rss", ".atom",
-))
+_SKIP_EXTENSIONS = frozenset(
+    (
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".webp",
+        ".mp3",
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".css",
+        ".js",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".eot",
+        ".ico",
+        ".xml",
+        ".json",
+        ".rss",
+        ".atom",
+    )
+)
 
 
 def _should_skip(url: str) -> bool:
@@ -105,6 +130,7 @@ def _extract_links(html: str, base_url: str) -> set[str]:
     links: set[str] = set()
     try:
         from lxml import html as lxml_html
+
         doc = lxml_html.fromstring(html)
     except Exception:
         # If parsing fails entirely, return no links.
@@ -128,8 +154,10 @@ def _extract_links(html: str, base_url: str) -> set[str]:
 # robots.txt
 # ---------------------------------------------------------------------------
 
-async def _load_robots(base_url: str, *, headers: dict[str, str], timeout: float,
-                       verify_ssl: bool) -> urllib.robotparser.RobotFileParser | None:
+
+async def _load_robots(
+    base_url: str, *, headers: dict[str, str], timeout: float, verify_ssl: bool
+) -> urllib.robotparser.RobotFileParser | None:
     """Fetch + parse robots.txt for base_url's origin. Returns None on any failure."""
     parsed = urlparse(base_url)
     robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
@@ -155,6 +183,7 @@ async def _load_robots(base_url: str, *, headers: dict[str, str], timeout: float
 # ---------------------------------------------------------------------------
 # Single-fetch extractor
 # ---------------------------------------------------------------------------
+
 
 async def _fetch_and_extract(
     url: str,
@@ -183,7 +212,10 @@ async def _fetch_and_extract(
     except UrlNotAllowedError as e:
         elapsed = (time.perf_counter() - t0) * 1000
         return FetchResult(
-            url=url, status_code=0, content="", elapsed_ms=elapsed,
+            url=url,
+            status_code=0,
+            content="",
+            elapsed_ms=elapsed,
             error=f"URL blocked: {e}",
         ), ""
 
@@ -199,9 +231,13 @@ async def _fetch_and_extract(
         if cached is not None:
             elapsed = (time.perf_counter() - t0) * 1000
             return FetchResult(
-                url=url, status_code=200,
-                content=cached["content"], title=cached.get("title"),
-                meta=cached.get("meta", {}), elapsed_ms=elapsed, from_cache=True,
+                url=url,
+                status_code=200,
+                content=cached["content"],
+                title=cached.get("title"),
+                meta=cached.get("meta", {}),
+                elapsed_ms=elapsed,
+                from_cache=True,
             ), ""
 
     merged_headers = {**DEFAULT_HEADERS, **headers}
@@ -224,9 +260,7 @@ async def _fetch_and_extract(
         ) as client:
             if cookies:
                 cookie_str = "; ".join(
-                    f"{c['name']}={c['value']}"
-                    for c in cookies
-                    if "name" in c and "value" in c
+                    f"{c['name']}={c['value']}" for c in cookies if "name" in c and "value" in c
                 )
                 if cookie_str:
                     client.headers["Cookie"] = cookie_str
@@ -240,9 +274,13 @@ async def _fetch_and_extract(
                     cache.touch(url, detail.value)
                     elapsed = (time.perf_counter() - t0) * 1000
                     return FetchResult(
-                        url=url, status_code=200,
-                        content=cached["content"], title=cached.get("title"),
-                        meta=cached.get("meta", {}), elapsed_ms=elapsed, from_cache=True,
+                        url=url,
+                        status_code=200,
+                        content=cached["content"],
+                        title=cached.get("title"),
+                        meta=cached.get("meta", {}),
+                        elapsed_ms=elapsed,
+                        from_cache=True,
                     ), ""
 
             resp.raise_for_status()
@@ -253,7 +291,9 @@ async def _fetch_and_extract(
                     if int(cl) > max_bytes:
                         elapsed = (time.perf_counter() - t0) * 1000
                         return FetchResult(
-                            url=url, status_code=status_code, content="",
+                            url=url,
+                            status_code=status_code,
+                            content="",
                             elapsed_ms=elapsed,
                             error=f"Content-Length {cl} exceeds max_bytes ({max_bytes})",
                         ), ""
@@ -264,7 +304,9 @@ async def _fetch_and_extract(
             if len(body) > max_bytes:
                 elapsed = (time.perf_counter() - t0) * 1000
                 return FetchResult(
-                    url=url, status_code=status_code, content="",
+                    url=url,
+                    status_code=status_code,
+                    content="",
                     elapsed_ms=elapsed,
                     error=f"response body ({len(body)} bytes) exceeds max_bytes ({max_bytes})",
                 ), ""
@@ -275,7 +317,9 @@ async def _fetch_and_extract(
     except httpx.HTTPStatusError as e:
         elapsed = (time.perf_counter() - t0) * 1000
         return FetchResult(
-            url=url, status_code=e.response.status_code, content="",
+            url=url,
+            status_code=e.response.status_code,
+            content="",
             elapsed_ms=elapsed,
             error=f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
         ), ""
@@ -283,7 +327,10 @@ async def _fetch_and_extract(
         logger.debug("crawl fetch failed for %s", url, exc_info=True)
         elapsed = (time.perf_counter() - t0) * 1000
         return FetchResult(
-            url=url, status_code=0, content="", elapsed_ms=elapsed,
+            url=url,
+            status_code=0,
+            content="",
+            elapsed_ms=elapsed,
             error=str(e) or type(e).__name__,
         ), ""
 
@@ -301,16 +348,26 @@ async def _fetch_and_extract(
 
     elapsed = (time.perf_counter() - t0) * 1000
     result = FetchResult(
-        url=url, status_code=status_code, content=content,
-        title=title, meta=meta, elapsed_ms=elapsed,
+        url=url,
+        status_code=status_code,
+        content=content,
+        title=title,
+        meta=meta,
+        elapsed_ms=elapsed,
     )
 
     if cache is not None and result.ok:
-        cache.put(url, detail.value, {
-            "content": result.content,
-            "title": result.title,
-            "meta": result.meta,
-        }, etag=etag, last_modified=last_modified)
+        cache.put(
+            url,
+            detail.value,
+            {
+                "content": result.content,
+                "title": result.title,
+                "meta": result.meta,
+            },
+            etag=etag,
+            last_modified=last_modified,
+        )
 
     return result, html
 
@@ -318,6 +375,7 @@ async def _fetch_and_extract(
 # ---------------------------------------------------------------------------
 # Crawl entry point
 # ---------------------------------------------------------------------------
+
 
 async def crawl(
     start_url: str,
@@ -388,7 +446,10 @@ async def crawl(
     robots = None
     if respect_robots:
         robots = await _load_robots(
-            start_url, headers=req_headers, timeout=timeout, verify_ssl=verify_ssl,
+            start_url,
+            headers=req_headers,
+            timeout=timeout,
+            verify_ssl=verify_ssl,
         )
 
     visited: set[str] = set()
@@ -416,12 +477,20 @@ async def crawl(
             if render:
                 # Rendered path: use fetch() and accept double-parse cost.
                 from .core import fetch as _core_fetch
+
                 r = await _core_fetch(
-                    url, detail=detail, render=True,
-                    headers=headers, cookies=cookies, proxy=proxy,
-                    timeout=timeout, verify_ssl=verify_ssl, max_bytes=max_bytes,
+                    url,
+                    detail=detail,
+                    render=True,
+                    headers=headers,
+                    cookies=cookies,
+                    proxy=proxy,
+                    timeout=timeout,
+                    verify_ssl=verify_ssl,
+                    max_bytes=max_bytes,
                     allow_private_addresses=allow_private_addresses,
-                    cache=cache, **render_kwargs,
+                    cache=cache,
+                    **render_kwargs,
                 )
                 # For rendered pages, link discovery uses the final content
                 # if the detail is raw; otherwise we skip discovery from

@@ -28,9 +28,7 @@ from typing import Any
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError as e:
-    raise ImportError(
-        "MCP SDK required. Install with: pip install 'pulldown[mcp]'"
-    ) from e
+    raise ImportError("MCP SDK required. Install with: pip install 'pulldown[mcp]'") from e
 
 from .cache import PageCache
 from .core import fetch as _fetch

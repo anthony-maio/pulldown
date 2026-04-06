@@ -17,6 +17,7 @@ from .core import Detail, FetchResult, fetch_many
 @dataclass
 class BenchmarkResult:
     """Results from a benchmark run."""
+
     urls: list[str]
     detail: str
     render: bool
@@ -53,7 +54,9 @@ class BenchmarkResult:
             "timing_ms": {
                 "mean": round(statistics.mean(elapsed), 1),
                 "median": round(statistics.median(elapsed), 1),
-                "p95": round(sorted(elapsed)[int(len(elapsed) * 0.95)], 1) if len(elapsed) >= 2 else round(elapsed[0], 1),
+                "p95": round(sorted(elapsed)[int(len(elapsed) * 0.95)], 1)
+                if len(elapsed) >= 2
+                else round(elapsed[0], 1),
                 "min": round(min(elapsed), 1),
                 "max": round(max(elapsed), 1),
                 "stdev": round(statistics.stdev(elapsed), 1) if len(elapsed) > 1 else 0,
@@ -63,9 +66,9 @@ class BenchmarkResult:
                 "total_chars": sum(content_sizes),
             },
             "throughput": {
-                "pages_per_second": round(
-                    ok_count / (sum(elapsed) / 1000), 2
-                ) if sum(elapsed) > 0 else 0,
+                "pages_per_second": round(ok_count / (sum(elapsed) / 1000), 2)
+                if sum(elapsed) > 0
+                else 0,
             },
         }
 

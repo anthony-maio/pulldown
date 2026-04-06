@@ -1,4 +1,5 @@
 """Tests for MCP server defaults and bind resolution."""
+
 from __future__ import annotations
 
 
@@ -8,6 +9,7 @@ class TestBindResolution:
         monkeypatch.delenv("MCP_HOST", raising=False)
         monkeypatch.delenv("MCP_PORT", raising=False)
         from pulldown.mcp_server import _resolve_bind
+
         host, port = _resolve_bind()
         assert host == "127.0.0.1"
         assert port == 8080
@@ -16,6 +18,7 @@ class TestBindResolution:
         monkeypatch.setenv("MCP_HOST", "0.0.0.0")
         monkeypatch.setenv("MCP_PORT", "9000")
         from pulldown.mcp_server import _resolve_bind
+
         host, port = _resolve_bind()
         assert host == "0.0.0.0"
         assert port == 9000

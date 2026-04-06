@@ -1,4 +1,5 @@
 """Characterization tests for the crawler."""
+
 from __future__ import annotations
 
 import httpx
@@ -9,6 +10,7 @@ from pulldown.crawl import _same_subpath, _should_skip
 # ---------------------------------------------------------------------------
 # URL boundary helpers
 # ---------------------------------------------------------------------------
+
 
 class TestSameSubpath:
     def test_same_domain_no_path(self):
@@ -55,19 +57,20 @@ class TestShouldSkip:
 # Crawl integration
 # ---------------------------------------------------------------------------
 
+
 def _build_site():
     """Return (handler_fn, urls_served) for a small mock site."""
     pages = {
-        "/": '<html><head><title>Home</title></head><body><h1>Home</h1>'
-             '<p>Welcome to the site, enjoy your stay.</p>'
-             '<a href="/a">A</a> <a href="/b">B</a> <a href="https://other.com/x">ext</a></body></html>',
-        "/a": '<html><head><title>A</title></head><body><h1>A</h1>'
-              '<p>Page A with enough content to be indexable.</p>'
-              '<a href="/c">C</a></body></html>',
-        "/b": '<html><head><title>B</title></head><body><h1>B</h1>'
-              '<p>Page B with enough content here too.</p></body></html>',
-        "/c": '<html><head><title>C</title></head><body><h1>C</h1>'
-              '<p>Page C, deep page at the bottom.</p></body></html>',
+        "/": "<html><head><title>Home</title></head><body><h1>Home</h1>"
+        "<p>Welcome to the site, enjoy your stay.</p>"
+        '<a href="/a">A</a> <a href="/b">B</a> <a href="https://other.com/x">ext</a></body></html>',
+        "/a": "<html><head><title>A</title></head><body><h1>A</h1>"
+        "<p>Page A with enough content to be indexable.</p>"
+        '<a href="/c">C</a></body></html>',
+        "/b": "<html><head><title>B</title></head><body><h1>B</h1>"
+        "<p>Page B with enough content here too.</p></body></html>",
+        "/c": "<html><head><title>C</title></head><body><h1>C</h1>"
+        "<p>Page C, deep page at the bottom.</p></body></html>",
     }
 
     requests_seen = []
@@ -88,7 +91,8 @@ class TestCrawl:
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -105,7 +109,8 @@ class TestCrawl:
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -118,7 +123,8 @@ class TestCrawl:
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 

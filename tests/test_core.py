@@ -1,4 +1,5 @@
 """Characterization tests for the core fetch + extract pipeline."""
+
 from __future__ import annotations
 
 import httpx
@@ -9,6 +10,7 @@ from pulldown import Detail, FetchResult, fetch, fetch_many
 # ---------------------------------------------------------------------------
 # Detail enum
 # ---------------------------------------------------------------------------
+
 
 class TestDetail:
     def test_enum_values(self):
@@ -29,6 +31,7 @@ class TestDetail:
 # ---------------------------------------------------------------------------
 # FetchResult
 # ---------------------------------------------------------------------------
+
 
 class TestFetchResult:
     def test_ok_when_200(self):
@@ -67,10 +70,13 @@ class TestFetchResult:
 # Fetch pipeline — using httpx MockTransport for hermeticity
 # ---------------------------------------------------------------------------
 
+
 def make_mock_transport(html: str, status: int = 200):
     """Return an httpx MockTransport that serves html for every request."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status, html=html)
+
     return httpx.MockTransport(handler)
 
 
@@ -101,7 +107,8 @@ class TestFetchReadable:
         transport = make_mock_transport(sample_article_html)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -116,7 +123,8 @@ class TestFetchMinimal:
         transport = make_mock_transport(sample_article_html)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -134,7 +142,8 @@ class TestFetchRaw:
         transport = make_mock_transport(sample_article_html)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -150,7 +159,8 @@ class TestFetchErrorHandling:
         transport = make_mock_transport("<h1>Not Found</h1>", status=404)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -163,10 +173,12 @@ class TestFetchErrorHandling:
     async def test_network_error_returns_error_result(self, monkeypatch):
         def handler(request):
             raise httpx.ConnectError("refused")
+
         transport = httpx.MockTransport(handler)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -180,7 +192,8 @@ class TestFetchErrorHandling:
         transport = make_mock_transport(sample_article_html)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 
@@ -193,12 +206,14 @@ class TestFetchErrorHandling:
 # fetch_many
 # ---------------------------------------------------------------------------
 
+
 class TestFetchMany:
     async def test_preserves_input_order(self, sample_article_html, monkeypatch):
         transport = make_mock_transport(sample_article_html)
         orig = httpx.AsyncClient
         monkeypatch.setattr(
-            httpx, "AsyncClient",
+            httpx,
+            "AsyncClient",
             lambda *a, **kw: orig(*a, **{**kw, "transport": transport}),
         )
 

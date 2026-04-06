@@ -33,8 +33,10 @@ DEFAULT_MAX_BYTES = 10 * 1024 * 1024
 # Detail enum
 # ---------------------------------------------------------------------------
 
+
 class Detail(str, enum.Enum):
     """How much content to extract."""
+
     minimal = "minimal"
     readable = "readable"
     full = "full"
@@ -45,9 +47,11 @@ class Detail(str, enum.Enum):
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FetchResult:
     """Holds the output of a single fetch."""
+
     url: str
     status_code: int
     content: str
@@ -141,9 +145,7 @@ def _validate_url(url: str, *, allow_private_addresses: bool) -> None:
     """Validate scheme + (optionally) reject private addresses. Raises UrlNotAllowedError."""
     parsed = urlparse(url)
     if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
-        raise UrlNotAllowedError(
-            f"scheme {parsed.scheme!r} not allowed (only http/https)"
-        )
+        raise UrlNotAllowedError(f"scheme {parsed.scheme!r} not allowed (only http/https)")
     if not parsed.hostname:
         raise UrlNotAllowedError("URL has no host")
     if not allow_private_addresses and _is_private_host(parsed.hostname):
@@ -189,6 +191,7 @@ def _title_from_document(doc: Any) -> str | None:
 def _extract_minimal(html: str, url: str) -> tuple[str, str | None, dict]:
     """Title + plain text only."""
     import trafilatura
+
     text = trafilatura.extract(
         html,
         output_format="txt",
@@ -205,6 +208,7 @@ def _extract_minimal(html: str, url: str) -> tuple[str, str | None, dict]:
 def _extract_readable(html: str, url: str) -> tuple[str, str | None, dict]:
     """Article body as Markdown with links."""
     import trafilatura
+
     md = trafilatura.extract(
         html,
         output_format="markdown",
@@ -229,6 +233,7 @@ def _extract_readable(html: str, url: str) -> tuple[str, str | None, dict]:
 def _extract_full(html: str, url: str) -> tuple[str, str | None, dict]:
     """Full-page Markdown, including boilerplate."""
     from html_to_markdown import convert
+
     result = convert(html)
     meta: dict[str, Any] = {}
     title: str | None = None
@@ -250,6 +255,7 @@ def _extract_full(html: str, url: str) -> tuple[str, str | None, dict]:
 def _title_from_lxml(html: str) -> str | None:
     try:
         from lxml import etree
+
         tree = etree.HTML(html)
         if tree is None:
             return None
@@ -271,6 +277,7 @@ EXTRACTORS = {
 # ---------------------------------------------------------------------------
 # Rendering (optional Chromium via Playwright)
 # ---------------------------------------------------------------------------
+
 
 async def _render_page(
     url: str,
@@ -339,6 +346,7 @@ async def _render_page(
 # ---------------------------------------------------------------------------
 # Main fetch function
 # ---------------------------------------------------------------------------
+
 
 async def fetch(
     url: str,
@@ -488,9 +496,7 @@ async def fetch(
             ) as client:
                 if cookies:
                     cookie_str = "; ".join(
-                        f"{c['name']}={c['value']}"
-                        for c in cookies
-                        if "name" in c and "value" in c
+                        f"{c['name']}={c['value']}" for c in cookies if "name" in c and "value" in c
                     )
                     if cookie_str:
                         client.headers["Cookie"] = cookie_str
@@ -546,9 +552,7 @@ async def fetch(
                                 status_code=status_code,
                                 content="",
                                 elapsed_ms=elapsed,
-                                error=(
-                                    f"Content-Length {cl} exceeds max_bytes ({max_bytes})"
-                                ),
+                                error=(f"Content-Length {cl} exceeds max_bytes ({max_bytes})"),
                             )
                     except ValueError:
                         pass
@@ -641,6 +645,7 @@ async def fetch(
 # ---------------------------------------------------------------------------
 # Batch fetch
 # ---------------------------------------------------------------------------
+
 
 async def fetch_many(
     urls: Sequence[str],
