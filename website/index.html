@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pulldown — HTTP-first web content for LLM pipelines</title>
+  <meta name="description" content="pulldown fetches URLs and converts them to clean, level-controlled Markdown — built for LLM pipelines, MCP servers, and CLI workflows.">
+  <meta property="og:title" content="pulldown — HTTP-first web content for LLM pipelines">
+  <meta property="og:description" content="Fetch URLs. Get clean Markdown. Control detail levels. Built for LLM pipelines and MCP servers.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#d4a853">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Theme icon visibility */
+    [data-theme="dark"]  .icon-sun  { display: none; }
+    [data-theme="dark"]  .icon-moon { display: block; }
+    [data-theme="light"] .icon-sun  { display: block; }
+    [data-theme="light"] .icon-moon { display: none; }
+
+    /* Hero pipeline SVG */
+    .hero-pipeline {
+      width: 100%;
+      max-width: 680px;
+      height: 160px;
+      margin-inline: auto;
+    }
+    @media (max-width: 600px) { .hero-pipeline { height: 120px; } }
+
+    /* Comparison table */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-xs);
+      margin-top: var(--space-8);
+    }
+    .compare-table th,
+    .compare-table td {
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--color-border);
+      text-align: left;
+    }
+    .compare-table thead th {
+      background: var(--color-surface-2);
+      font-weight: 600;
+      color: var(--color-accent);
+    }
+    .compare-table tbody tr:nth-child(even) { background: var(--color-surface-offset); }
+    .compare-table .check { color: var(--color-success); }
+    .compare-table .cross { color: var(--color-text-faint); }
+    .compare-table .highlight td:first-child { color: var(--color-accent); font-weight: 600; }
+
+    /* Detail level panel code */
+    .detail-panel pre { margin: 0; }
+
+    /* Mobile nav */
+    .nav-links { display: flex; }
+    .mobile-toggle { display: none; }
+    @media (max-width: 820px) {
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        background: var(--color-surface);
+        border-bottom: 1px solid var(--color-border);
+        padding: var(--space-4);
+        gap: var(--space-2);
+        z-index: 99;
+      }
+      .nav-links.open { display: flex; }
+      .mobile-toggle { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <nav class="nav" id="site-nav" aria-label="Main navigation">
+    <div class="container--wide nav-inner" style="position:relative;">
+      <div style="display:flex;align-items:center;gap:0.25rem;">
+        <a href="https://making-minds.ai" class="nav-parent">making-minds.ai <span class="nav-parent-sep">›</span></a>
+        <a href="#" class="nav-logo" aria-label="pulldown home">
+          <!-- Funnel mark -->
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <rect x="2" y="3" width="18" height="3" rx="1.5" fill="var(--color-accent)"/>
+            <path d="M5 6 L11 14 L17 6" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="8.5" y="14" width="5" height="5" rx="1" fill="var(--color-accent)" opacity="0.7"/>
+          </svg>
+          <span>pulldown</span>
+        </a>
+      </div>
+
+      <div class="nav-links" id="nav-links">
+        <a href="#features">Features</a>
+        <a href="#detail-levels">Detail Levels</a>
+        <a href="#quickstart">Quick Start</a>
+        <a href="#security">Security</a>
+        <a href="#integrations">Integrations</a>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:var(--space-3);">
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle colour theme">
+          <!-- Moon icon (shown in dark mode) -->
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <!-- Sun icon (shown in light mode) -->
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        </button>
+        <a class="btn btn-ghost" href="https://github.com/anthony-maio/pulldown" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="btn btn-primary" href="#quickstart">pip install</a>
+        <button class="mobile-toggle" type="button" aria-label="Toggle navigation" aria-controls="nav-links" aria-expanded="false">☰</button>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <!-- ═══════════════════════════════════════════════
+         HERO
+    ═══════════════════════════════════════════════ -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-eyebrow reveal">Open Source · Python · CLI · MCP</div>
+        <h1 class="hero-headline reveal">HTTP-first web content<br>for LLM pipelines.</h1>
+        <p class="hero-lead reveal">
+          pulldown fetches URLs and converts them to clean, level-controlled Markdown —
+          no browser, no heavy dependencies, no surprise tokens.
+        </p>
+
+        <div class="hero-actions reveal">
+          <a class="btn btn-primary" href="#quickstart">Get started</a>
+          <a class="btn btn-ghost" href="#features">See features</a>
+        </div>
+
+        <!-- Pipeline animation -->
+        <div class="reveal" style="margin-top: var(--space-12);">
+          <svg class="hero-pipeline" viewBox="0 0 680 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="pulldown pipeline: URL input flows to pulldown processor which outputs clean Markdown">
+
+            <!-- Left zone: raw HTML -->
+            <rect x="0" y="30" width="180" height="100" rx="10" fill="var(--color-surface-2)" stroke="var(--color-border)" stroke-width="1"/>
+            <text x="16" y="52" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text-muted)">&lt;html&gt;</text>
+            <text x="16" y="68" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text-faint)">&lt;nav&gt;...&lt;/nav&gt;</text>
+            <text x="16" y="84" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text-faint)">&lt;script&gt;...&lt;/script&gt;</text>
+            <text x="16" y="100" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text-faint)">&lt;div class="..."&gt;</text>
+            <text x="16" y="116" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text-muted)">  &lt;p&gt;article content&lt;/p&gt;</text>
+            <text x="16" y="130" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text-faint)">&lt;/div&gt;&lt;/html&gt;</text>
+            <text x="90" y="18" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="var(--color-text-muted)" text-anchor="middle">raw HTML</text>
+
+            <!-- Animated flow line left→center -->
+            <line x1="180" y1="80" x2="250" y2="80" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.6">
+              <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.2s" repeatCount="indefinite"/>
+            </line>
+            <polygon points="250,74 260,80 250,86" fill="var(--color-accent)" opacity="0.7"/>
+
+            <!-- Center: pulldown processor -->
+            <rect x="260" y="20" width="160" height="120" rx="12" fill="var(--color-surface-offset)" stroke="var(--color-accent)" stroke-width="1.5"/>
+            <!-- Funnel icon -->
+            <rect x="310" y="42" width="60" height="10" rx="5" fill="var(--color-accent)" opacity="0.9"/>
+            <path d="M316 52 L340 80 L364 52" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="330" y="80" width="20" height="18" rx="4" fill="var(--color-accent)" opacity="0.6"/>
+            <text x="340" y="118" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="var(--color-accent)" text-anchor="middle">pulldown</text>
+            <text x="340" y="132" font-family="Inter,sans-serif" font-size="9" fill="var(--color-text-muted)" text-anchor="middle">extract · convert · level</text>
+
+            <!-- Animated flow line center→right -->
+            <line x1="420" y1="80" x2="490" y2="80" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.6">
+              <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.2s" repeatCount="indefinite"/>
+            </line>
+            <polygon points="490,74 500,80 490,86" fill="var(--color-accent)" opacity="0.7"/>
+
+            <!-- Right zone: clean Markdown -->
+            <rect x="500" y="30" width="180" height="100" rx="10" fill="var(--color-surface-2)" stroke="var(--color-border)" stroke-width="1"/>
+            <text x="516" y="52" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-accent)"># Article Title</text>
+            <text x="516" y="68" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text)">The quick brown fox...</text>
+            <text x="516" y="84" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text)">jumps over the lazy dog.</text>
+            <text x="516" y="100" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text-muted)">## Section</text>
+            <text x="516" y="116" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-text)">Clean, readable content.</text>
+            <text x="590" y="18" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="var(--color-success)" text-anchor="middle">clean Markdown</text>
+          </svg>
+        </div>
+
+        <!-- Quick stat strip -->
+        <div class="hero-stats reveal">
+          <div class="hero-stat">
+            <strong>HTTP-first</strong>
+            <span>no browser required</span>
+          </div>
+          <div class="hero-stat">
+            <strong>4 detail levels</strong>
+            <span>minimal → full</span>
+          </div>
+          <div class="hero-stat">
+            <strong>SSRF guard</strong>
+            <span>safe in server contexts</span>
+          </div>
+          <div class="hero-stat">
+            <strong>MCP ready</strong>
+            <span>tool surface included</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         FEATURES
+    ═══════════════════════════════════════════════ -->
+    <section id="features" style="background:var(--color-surface);">
+      <div class="container--wide">
+        <div class="section-label reveal">Features</div>
+        <h2 class="section-headline reveal">Everything a pipeline needs. Nothing it doesn't.</h2>
+
+        <div class="feature-grid">
+
+          <article class="feature-card reveal">
+            <div class="feature-card-body">
+              <div class="feature-number">01</div>
+              <div class="feature-name">HTTP-First Fetching</div>
+              <p class="feature-desc">Requests + BeautifulSoup. No browser, no Playwright, no heavyweight dependency chain. Fast cold starts, predictable memory.</p>
+              <div class="feature-tag">requests · beautifulsoup4</div>
+            </div>
+            <div class="feature-visual" aria-hidden="true">
+              <svg width="100" height="70" viewBox="0 0 100 70" fill="none">
+                <rect x="5" y="20" width="90" height="30" rx="6" fill="var(--color-surface-offset)" stroke="var(--color-accent)" stroke-width="1"/>
+                <text x="50" y="39" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--color-accent)" text-anchor="middle">GET /url</text>
+                <line x1="50" y1="50" x2="50" y2="65" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="3 2">
+                  <animate attributeName="stroke-dashoffset" from="0" to="-10" dur="1s" repeatCount="indefinite"/>
+                </line>
+                <text x="50" y="14" font-family="Inter,sans-serif" font-size="8" fill="var(--color-text-muted)" text-anchor="middle">200 OK → parse</text>
+              </svg>
+            </div>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-card-body">
+              <div class="feature-number">02</div>
+              <div class="feature-name">Detail Levels</div>
+              <p class="feature-desc">Four output modes — minimal, readable, full, raw — so you control how many tokens reach the model.</p>
+              <div class="feature-tag">minimal · readable · full · raw</div>
+            </div>
+            <div class="feature-visual" aria-hidden="true">
+              <svg width="100" height="70" viewBox="0 0 100 70" fill="none">
+                <rect x="5" y="5" width="90" height="14" rx="3" fill="var(--color-accent)" opacity="0.15"/>
+                <rect x="5" y="23" width="70" height="10" rx="3" fill="var(--color-surface-offset)"/>
+                <rect x="5" y="37" width="55" height="10" rx="3" fill="var(--color-surface-offset)" opacity="0.7"/>
+                <rect x="5" y="51" width="38" height="10" rx="3" fill="var(--color-surface-offset)" opacity="0.4"/>
+                <text x="50" y="15" font-family="Inter,sans-serif" font-size="7" fill="var(--color-accent)" text-anchor="middle">full</text>
+                <text x="42" y="30" font-family="Inter,sans-serif" font-size="7" fill="var(--color-text-muted)" text-anchor="middle">readable</text>
+                <text x="32" y="44" font-family="Inter,sans-serif" font-size="7" fill="var(--color-text-muted)" text-anchor="middle">minimal</text>
+              </svg>
+            </div>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-card-body">
+              <div class="feature-number">03</div>
+              <div class="feature-name">Batch Fetching</div>
+              <p class="feature-desc">Pass a list of URLs and get back a list of results. Concurrency controlled, errors surfaced per-item, not globally.</p>
+              <div class="feature-tag">concurrent · per-item errors</div>
+            </div>
+            <div class="feature-visual" aria-hidden="true">
+              <svg width="100" height="70" viewBox="0 0 100 70" fill="none">
+                <line x1="10" y1="15" x2="50" y2="35" stroke="var(--color-accent)" stroke-width="1" opacity="0.6"/>
+                <line x1="10" y1="35" x2="50" y2="35" stroke="var(--color-accent)" stroke-width="1" opacity="0.6"/>
+                <line x1="10" y1="55" x2="50" y2="35" stroke="var(--color-accent)" stroke-width="1" opacity="0.6"/>
+                <circle cx="10" cy="15" r="5" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <circle cx="10" cy="35" r="5" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <circle cx="10" cy="55" r="5" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <rect x="42" y="25" width="20" height="20" rx="4" fill="var(--color-surface-offset)" stroke="var(--color-accent)" stroke-width="1"/>
+                <line x1="62" y1="35" x2="90" y2="35" stroke="var(--color-success)" stroke-width="1.5"/>
+                <polygon points="87,31 94,35 87,39" fill="var(--color-success)"/>
+              </svg>
+            </div>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-card-body">
+              <div class="feature-number">04</div>
+              <div class="feature-name">Bounded Crawl</div>
+              <p class="feature-desc">Follow links from a seed URL up to a configurable depth and page limit. Same-domain by default. No runaway scrapes.</p>
+              <div class="feature-tag">depth · page-limit · same-domain</div>
+            </div>
+            <div class="feature-visual" aria-hidden="true">
+              <svg width="100" height="70" viewBox="0 0 100 70" fill="none">
+                <circle cx="50" cy="35" r="8" fill="var(--color-accent)" opacity="0.3" stroke="var(--color-accent)" stroke-width="1.5"/>
+                <circle cx="22" cy="18" r="5" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <circle cx="78" cy="18" r="5" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <circle cx="22" cy="52" r="5" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <circle cx="78" cy="52" r="5" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <line x1="42" y1="29" x2="27" y2="21" stroke="var(--color-accent)" stroke-width="1" opacity="0.5"/>
+                <line x1="58" y1="29" x2="73" y2="21" stroke="var(--color-accent)" stroke-width="1" opacity="0.5"/>
+                <line x1="42" y1="41" x2="27" y2="49" stroke="var(--color-accent)" stroke-width="1" opacity="0.5"/>
+                <line x1="58" y1="41" x2="73" y2="49" stroke="var(--color-accent)" stroke-width="1" opacity="0.5"/>
+              </svg>
+            </div>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-card-body">
+              <div class="feature-number">05</div>
+              <div class="feature-name">Validator Caching</div>
+              <p class="feature-desc">Uses ETag and Last-Modified headers to skip re-fetching unchanged pages. Correct conditional GET, not a naïve TTL.</p>
+              <div class="feature-tag">ETag · Last-Modified · 304</div>
+            </div>
+            <div class="feature-visual" aria-hidden="true">
+              <svg width="100" height="70" viewBox="0 0 100 70" fill="none">
+                <rect x="5" y="10" width="40" height="50" rx="4" fill="var(--color-surface-offset)" stroke="var(--color-border)"/>
+                <text x="25" y="30" font-family="JetBrains Mono,monospace" font-size="7" fill="var(--color-text-muted)" text-anchor="middle">ETag</text>
+                <text x="25" y="42" font-family="JetBrains Mono,monospace" font-size="7" fill="var(--color-accent)" text-anchor="middle">"abc123"</text>
+                <line x1="45" y1="35" x2="65" y2="35" stroke="var(--color-text-faint)" stroke-width="1" stroke-dasharray="3 2"/>
+                <text x="75" y="32" font-family="Inter,sans-serif" font-size="7" fill="var(--color-success)" text-anchor="middle">304</text>
+                <text x="75" y="42" font-family="Inter,sans-serif" font-size="7" fill="var(--color-text-muted)" text-anchor="middle">Not Modified</text>
+              </svg>
+            </div>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-card-body">
+              <div class="feature-number">06</div>
+              <div class="feature-name">SSRF Guard</div>
+              <p class="feature-desc">Resolves hostnames to IP addresses before connecting and blocks private, loopback, and link-local ranges. Safe in server contexts.</p>
+              <div class="feature-tag">SSRF · pre-connect · IP check</div>
+            </div>
+            <div class="feature-visual" aria-hidden="true">
+              <svg width="100" height="70" viewBox="0 0 100 70" fill="none">
+                <circle cx="50" cy="35" r="22" fill="none" stroke="var(--color-border)" stroke-width="1" stroke-dasharray="4 3"/>
+                <circle cx="50" cy="35" r="14" fill="none" stroke="var(--color-accent)" stroke-width="1" opacity="0.5"/>
+                <circle cx="50" cy="35" r="6" fill="var(--color-accent)" opacity="0.3"/>
+                <!-- Block arrow from top-right -->
+                <line x1="70" y1="15" x2="58" y2="27" stroke="var(--color-error)" stroke-width="1.5"/>
+                <line x1="62" y1="15" x2="70" y2="15" stroke="var(--color-error)" stroke-width="1.5"/>
+                <line x1="70" y1="15" x2="70" y2="23" stroke="var(--color-error)" stroke-width="1.5"/>
+                <text x="78" y="13" font-family="Inter,sans-serif" font-size="7" fill="var(--color-error)">blocked</text>
+              </svg>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         DETAIL LEVELS
+    ═══════════════════════════════════════════════ -->
+    <section id="detail-levels">
+      <div class="container">
+        <div class="section-label reveal">Detail Levels</div>
+        <h2 class="section-headline reveal">One fetch. Four resolutions.</h2>
+        <p class="section-intro reveal">
+          Every fetch accepts a <code>detail_level</code> parameter. Pick the resolution that matches your pipeline's token budget.
+        </p>
+
+        <div class="detail-tabs reveal" role="tablist" aria-label="Detail level examples">
+          <button class="detail-tab active" role="tab" aria-selected="true" aria-controls="panel-minimal" id="tab-minimal">minimal</button>
+          <button class="detail-tab" role="tab" aria-selected="false" aria-controls="panel-readable" id="tab-readable">readable</button>
+          <button class="detail-tab" role="tab" aria-selected="false" aria-controls="panel-full" id="tab-full">full</button>
+          <button class="detail-tab" role="tab" aria-selected="false" aria-controls="panel-raw" id="tab-raw">raw</button>
+        </div>
+
+        <div class="detail-panel active" id="panel-minimal" role="tabpanel" aria-labelledby="tab-minimal">
+          <pre><code># Why HTTP-First Fetching Works
+
+Main article text only. No nav, no sidebars, no ads.
+Lowest token count. Best for classification or triage.</code></pre>
+          <p style="margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-text-muted);">Title + core body paragraphs. Navigation, headers, footers, and repeated boilerplate stripped.</p>
+        </div>
+
+        <div class="detail-panel" id="panel-readable" role="tabpanel" aria-labelledby="tab-readable">
+          <pre><code># Why HTTP-First Fetching Works
+
+**Published:** 2025-11-04 · **Author:** Anthony Maio
+
+Main article text with structure preserved. Section headings, lists,
+and inline code blocks included. Images referenced as alt text.
+
+## Section Heading
+
+Content continues here with headings and lists intact.</code></pre>
+          <p style="margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-text-muted);">Title, metadata, body paragraphs, headings, lists, inline code. Images become alt-text references.</p>
+        </div>
+
+        <div class="detail-panel" id="panel-full" role="tabpanel" aria-labelledby="tab-full">
+          <pre><code># Why HTTP-First Fetching Works
+
+**Published:** 2025-11-04 · **Author:** Anthony Maio · **Tags:** python, llm
+
+Main article text. All structure preserved including code blocks,
+tables, blockquotes, and footnotes.
+
+```python
+result = await client.fetch("https://example.com")
+```
+
+| Column A | Column B |
+|----------|----------|
+| value    | value    |
+
+> Blockquote text preserved verbatim.</code></pre>
+          <p style="margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-text-muted);">Full content including code blocks, tables, blockquotes, footnotes. No boilerplate stripped. Highest fidelity.</p>
+        </div>
+
+        <div class="detail-panel" id="panel-raw" role="tabpanel" aria-labelledby="tab-raw">
+          <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+  &lt;head&gt;
+    &lt;title&gt;Why HTTP-First Fetching Works&lt;/title&gt;
+    &lt;meta name="description" content="..."&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;article&gt;...&lt;/article&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+          <p style="margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-text-muted);">Raw HTML returned as-is. No conversion. For pipelines that need to do their own extraction or diffing.</p>
+        </div>
+
+        <div style="margin-top:var(--space-12);" class="reveal">
+          <table class="compare-table" aria-label="Detail level comparison">
+            <thead>
+              <tr>
+                <th>Level</th>
+                <th>Headings</th>
+                <th>Lists</th>
+                <th>Code blocks</th>
+                <th>Tables</th>
+                <th>Images</th>
+                <th>Nav / footer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>minimal</strong></td>
+                <td class="check">title only</td>
+                <td class="cross">—</td>
+                <td class="cross">—</td>
+                <td class="cross">—</td>
+                <td class="cross">—</td>
+                <td class="cross">stripped</td>
+              </tr>
+              <tr>
+                <td><strong>readable</strong></td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">inline</td>
+                <td class="cross">—</td>
+                <td class="check">alt text</td>
+                <td class="cross">stripped</td>
+              </tr>
+              <tr>
+                <td><strong>full</strong></td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="cross">stripped</td>
+              </tr>
+              <tr>
+                <td><strong>raw</strong></td>
+                <td colspan="6" style="color:var(--color-text-muted);">Raw HTML returned, no conversion applied</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         QUICK START
+    ═══════════════════════════════════════════════ -->
+    <section id="quickstart" style="background:var(--color-surface);">
+      <div class="container">
+        <div class="section-label reveal">Quick Start</div>
+        <h2 class="section-headline reveal">Install. Fetch. Done.</h2>
+
+        <div class="quickstart-grid">
+          <div class="quickstart-col reveal">
+            <div class="code-label">Install</div>
+            <pre class="code-block"><code>pip install pulldown-mcp</code></pre>
+
+            <div class="code-label" style="margin-top:var(--space-6);">CLI</div>
+            <pre class="code-block"><code>pulldown fetch https://example.com
+pulldown fetch https://example.com --level minimal
+pulldown fetch https://example.com --level full --output out.md
+pulldown batch urls.txt --level readable</code></pre>
+          </div>
+
+          <div class="quickstart-col reveal">
+            <div class="code-label">Python API</div>
+            <pre class="code-block"><code>from pulldown import PulldownClient
+
+client = PulldownClient()
+
+# Single fetch
+result = await client.fetch(
+    "https://example.com/article",
+    detail_level="readable"
+)
+print(result.markdown)
+
+# Batch
+results = await client.fetch_batch(
+    ["https://a.com", "https://b.com"],
+    detail_level="minimal"
+)
+for r in results:
+    print(r.url, len(r.markdown))</code></pre>
+          </div>
+        </div>
+
+        <div class="cta-row reveal">
+          <a class="btn btn-primary" href="https://github.com/anthony-maio/pulldown" target="_blank" rel="noopener noreferrer">Open the repo</a>
+          <a class="btn btn-ghost" href="https://github.com/anthony-maio/pulldown#readme" target="_blank" rel="noopener noreferrer">Read the README</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         SECURITY
+    ═══════════════════════════════════════════════ -->
+    <section id="security">
+      <div class="container">
+        <div class="section-label reveal">Security</div>
+        <h2 class="section-headline reveal">Safe to run in server contexts.</h2>
+        <p class="section-intro reveal">
+          pulldown is designed for use inside MCP servers and other networked services where arbitrary user-supplied URLs are a real threat surface.
+        </p>
+
+        <div class="security-grid">
+          <article class="security-card reveal">
+            <div class="security-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="16" r="12" stroke="var(--color-accent)" stroke-width="1.5"/>
+                <circle cx="16" cy="16" r="6" stroke="var(--color-accent)" stroke-width="1.5" opacity="0.5"/>
+                <line x1="24" y1="8" x2="18" y2="14" stroke="var(--color-error)" stroke-width="2" stroke-linecap="round"/>
+                <line x1="24" y1="14" x2="18" y2="8" stroke="var(--color-error)" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="security-name">SSRF Guard</div>
+            <p class="security-desc">Resolves hostnames to IP before opening the connection. Blocks private (RFC 1918), loopback, link-local, and reserved ranges. The check uses the final resolved address, not the hostname string.</p>
+            <div class="security-detail">pre-connect IP resolution · predicate check · configurable allow-list</div>
+          </article>
+
+          <article class="security-card reveal">
+            <div class="security-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <rect x="4" y="12" width="24" height="16" rx="3" stroke="var(--color-accent)" stroke-width="1.5"/>
+                <path d="M10 12V9a6 6 0 0 1 12 0v3" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="16" cy="20" r="2" fill="var(--color-accent)" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="security-name">Size Caps</div>
+            <p class="security-desc">Response bodies are capped before they reach memory. Configurable per-request maximum. A malicious or unexpectedly large page cannot exhaust the server's heap.</p>
+            <div class="security-detail">max_bytes · streaming truncation · no OOM risk</div>
+          </article>
+
+          <article class="security-card reveal">
+            <div class="security-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <rect x="4" y="4" width="24" height="24" rx="4" stroke="var(--color-accent)" stroke-width="1.5"/>
+                <line x1="10" y1="16" x2="22" y2="16" stroke="var(--color-accent)" stroke-width="1.5"/>
+                <line x1="16" y1="10" x2="16" y2="22" stroke="var(--color-accent)" stroke-width="1.5" opacity="0.4"/>
+                <text x="7" y="11" font-family="JetBrains Mono,monospace" font-size="7" fill="var(--color-accent)">https</text>
+              </svg>
+            </div>
+            <div class="security-name">Scheme Validation</div>
+            <p class="security-desc">Only http:// and https:// URLs are accepted. file://, gopher://, ftp://, and other schemes are rejected before a connection is attempted.</p>
+            <div class="security-detail">scheme allowlist · early rejection · no redirect bypass</div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         INTEGRATIONS
+    ═══════════════════════════════════════════════ -->
+    <section id="integrations" style="background:var(--color-surface);">
+      <div class="container">
+        <div class="section-label reveal">Integrations</div>
+        <h2 class="section-headline reveal">CLI, Python, or MCP — pick your surface.</h2>
+
+        <div class="integrations-grid">
+
+          <article class="integration-panel reveal">
+            <div class="integration-header">
+              <div class="integration-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <rect x="1" y="1" width="18" height="18" rx="3" stroke="var(--color-accent)" stroke-width="1.5"/>
+                  <text x="3" y="14" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--color-accent)">$_</text>
+                </svg>
+              </div>
+              <div class="integration-title">CLI</div>
+              <div class="integration-badge">terminal</div>
+            </div>
+            <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>pulldown fetch https://example.com \
+  --level readable \
+  --output article.md
+
+pulldown crawl https://docs.example.com \
+  --depth 2 \
+  --max-pages 20 \
+  --level minimal</code></pre>
+          </article>
+
+          <article class="integration-panel reveal">
+            <div class="integration-header">
+              <div class="integration-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="9" stroke="var(--color-accent)" stroke-width="1.5"/>
+                  <text x="5" y="14" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--color-accent)">py</text>
+                </svg>
+              </div>
+              <div class="integration-title">Python API</div>
+              <div class="integration-badge">async</div>
+            </div>
+            <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>from pulldown import PulldownClient
+
+client = PulldownClient(
+    max_bytes=1_000_000,
+    ssrf_guard=True,
+)
+
+result = await client.fetch(
+    url,
+    detail_level="readable",
+)</code></pre>
+          </article>
+
+          <article class="integration-panel reveal">
+            <div class="integration-header">
+              <div class="integration-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <rect x="2" y="5" width="16" height="12" rx="2" stroke="var(--color-accent)" stroke-width="1.5"/>
+                  <path d="M6 5V4a4 4 0 0 1 8 0v1" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round"/>
+                  <circle cx="10" cy="11" r="1.5" fill="var(--color-accent)" opacity="0.7"/>
+                </svg>
+              </div>
+              <div class="integration-title">MCP Server</div>
+              <div class="integration-badge">Claude · Codex · agents</div>
+            </div>
+            <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>{
+  "mcpServers": {
+    "pulldown": {
+      "command": "python",
+      "args": ["-m", "pulldown.mcp"],
+      "env": {
+        "PULLDOWN_SSRF_GUARD": "true",
+        "PULLDOWN_MAX_BYTES": "1000000"
+      }
+    }
+  }
+}</code></pre>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         COMPARISON
+    ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="container">
+        <div class="section-label reveal">Comparison</div>
+        <h2 class="section-headline reveal">Why not just use requests?</h2>
+        <p class="section-intro reveal">
+          httpx and requests get you the bytes. pulldown gets you Markdown with structure intact, detail control, and the safety layer a server context requires.
+        </p>
+
+        <div class="reveal">
+          <table class="compare-table" aria-label="Tool comparison">
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Markdown output</th>
+                <th>Detail levels</th>
+                <th>SSRF guard</th>
+                <th>Batch API</th>
+                <th>MCP surface</th>
+                <th>No browser needed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="highlight">
+                <td>pulldown</td>
+                <td class="check">✓</td>
+                <td class="check">✓ 4 levels</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+              </tr>
+              <tr>
+                <td>httpx / requests</td>
+                <td class="cross">—</td>
+                <td class="cross">—</td>
+                <td class="cross">manual</td>
+                <td class="cross">manual</td>
+                <td class="cross">—</td>
+                <td class="check">✓</td>
+              </tr>
+              <tr>
+                <td>requests + BS4</td>
+                <td class="cross">manual</td>
+                <td class="cross">—</td>
+                <td class="cross">manual</td>
+                <td class="cross">manual</td>
+                <td class="cross">—</td>
+                <td class="check">✓</td>
+              </tr>
+              <tr>
+                <td>Playwright / Puppeteer</td>
+                <td class="cross">manual</td>
+                <td class="cross">—</td>
+                <td class="cross">—</td>
+                <td class="cross">limited</td>
+                <td class="cross">—</td>
+                <td class="cross">browser required</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cta-row reveal">
+          <a class="btn btn-primary" href="https://github.com/anthony-maio/pulldown" target="_blank" rel="noopener noreferrer">Open on GitHub</a>
+          <a class="btn btn-ghost" href="https://making-minds.ai">making-minds.ai</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container--wide footer-inner">
+      <div class="footer-brand">
+        <a href="#" class="footer-logo" aria-label="pulldown home">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <rect x="2" y="3" width="18" height="3" rx="1.5" fill="var(--color-accent)"/>
+            <path d="M5 6 L11 14 L17 6" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="8.5" y="14" width="5" height="5" rx="1" fill="var(--color-accent)" opacity="0.7"/>
+          </svg>
+          <span>pulldown</span>
+        </a>
+        <p class="footer-tagline">HTTP-first web content for LLM pipelines.</p>
+        <p style="font-size:var(--text-xs);color:var(--color-text-faint);margin-top:var(--space-2);">
+          A <a href="https://making-minds.ai" style="color:var(--color-accent);opacity:0.8;">making-minds.ai</a> project.
+        </p>
+      </div>
+
+      <div class="footer-cols">
+        <div class="footer-col">
+          <div class="footer-col-head">Product</div>
+          <a href="#features">Features</a>
+          <a href="#detail-levels">Detail Levels</a>
+          <a href="#security">Security</a>
+          <a href="#integrations">Integrations</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-head">Docs</div>
+          <a href="#quickstart">Quick Start</a>
+          <a href="https://github.com/anthony-maio/pulldown#readme" target="_blank" rel="noopener noreferrer">README</a>
+          <a href="https://github.com/anthony-maio/pulldown/issues" target="_blank" rel="noopener noreferrer">Issues</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-head">making-minds</div>
+          <a href="https://making-minds.ai">Home</a>
+          <a href="https://mnemos.making-minds.ai">Mnemos</a>
+          <a href="https://cartograph.making-minds.ai">Cartograph</a>
+          <a href="https://synthesis.making-minds.ai">Synthesis</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="container--wide footer-bottom-inner">
+        <span>MIT License</span>
+        <span>© 2025 Anthony Maio</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ── Theme toggle ──────────────────────────────── */
+      var root = document.documentElement;
+      var saved = localStorage.getItem('pd-theme');
+      if (saved) root.setAttribute('data-theme', saved);
+
+      document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          root.setAttribute('data-theme', next);
+          localStorage.setItem('pd-theme', next);
+        });
+      });
+
+      /* ── Nav scroll shadow ─────────────────────────── */
+      var nav = document.getElementById('site-nav');
+      if (nav) {
+        var onScroll = function () {
+          nav.classList.toggle('nav--scrolled', window.scrollY > 4);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+      }
+
+      /* ── Mobile nav ────────────────────────────────── */
+      var toggle = document.querySelector('.mobile-toggle');
+      var links  = document.getElementById('nav-links');
+      if (toggle && links) {
+        toggle.addEventListener('click', function () {
+          var open = links.classList.toggle('open');
+          toggle.setAttribute('aria-expanded', String(open));
+        });
+      }
+
+      /* ── Scroll reveal ─────────────────────────────── */
+      if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('revealed');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.08 });
+
+        document.querySelectorAll('.reveal').forEach(function (el, i) {
+          el.style.transitionDelay = (i % 6) * 60 + 'ms';
+          io.observe(el);
+        });
+      } else {
+        document.querySelectorAll('.reveal').forEach(function (el) {
+          el.classList.add('revealed');
+        });
+      }
+
+      /* ── Detail level tabs ─────────────────────────── */
+      var tabs   = document.querySelectorAll('.detail-tab');
+      var panels = document.querySelectorAll('.detail-panel');
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          var target = tab.getAttribute('aria-controls');
+
+          tabs.forEach(function (t) {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+          });
+          panels.forEach(function (p) { p.classList.remove('active'); });
+
+          tab.classList.add('active');
+          tab.setAttribute('aria-selected', 'true');
+          var panel = document.getElementById(target);
+          if (panel) panel.classList.add('active');
+        });
+      });
+
+      /* ── Code copy ─────────────────────────────────── */
+      document.querySelectorAll('.code-block').forEach(function (block) {
+        var btn = document.createElement('button');
+        btn.className = 'code-copy';
+        btn.setAttribute('aria-label', 'Copy code');
+        btn.textContent = 'copy';
+        block.style.position = 'relative';
+        block.appendChild(btn);
+
+        btn.addEventListener('click', function () {
+          var code = block.querySelector('code');
+          if (code) {
+            navigator.clipboard.writeText(code.textContent.trim()).then(function () {
+              btn.textContent = 'copied';
+              setTimeout(function () { btn.textContent = 'copy'; }, 1800);
+            });
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
