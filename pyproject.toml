@@ -47,10 +47,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/anthonymaio/pulldown"
-Repository = "https://github.com/anthonymaio/pulldown"
-Issues = "https://github.com/anthonymaio/pulldown/issues"
-Changelog = "https://github.com/anthonymaio/pulldown/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/anthony-maio/pulldown"
+Repository = "https://github.com/anthony-maio/pulldown"
+Issues = "https://github.com/anthony-maio/pulldown/issues"
+Changelog = "https://github.com/anthony-maio/pulldown/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pulldown = "pulldown.cli:main"
@@ -67,6 +67,7 @@ packages = ["src/pulldown"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["src"]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]

@@ -28,6 +28,8 @@ from .core import (
     Detail,
     FetchResult,
     UrlNotAllowedError,
+    _get_following_safe_redirects,
+    _render_page,
     _title_from_lxml,
     _validate_url,
 )
@@ -45,6 +47,7 @@ class CrawlResult:
     urls_fetched: int = 0
     urls_skipped: int = 0
     elapsed_ms: float = 0.0
+    error: str | None = None
 
     def to_markdown(self, separator: str = "\n\n---\n\n") -> str:
         """Concatenate all pages into one Markdown document."""
@@ -197,13 +200,15 @@ async def _fetch_and_extract(
     max_bytes: int,
     allow_private_addresses: bool,
     cache: Any | None,
-) -> tuple[FetchResult, str]:
+) -> tuple[FetchResult, set[str]]:
     """
-    Fetch once, extract locally, and return (result, raw_html).
-    Avoids the double-fetch problem in the previous implementation.
+    Fetch once, extract locally, and return (result, links).
 
-    Rendering is not supported on this path — rendered crawls route
-    through the per-page ``fetch()`` call for simplicity.
+    Returns discovered outgoing links alongside the FetchResult so the
+    crawler can queue them without a second network request. On cache hits
+    the stored link set is returned, preserving full site traversal even
+    on warm-cache runs. Redirects are followed manually so every hop is
+    validated against the SSRF guard.
     """
     t0 = time.perf_counter()
 
@@ -217,15 +222,10 @@ async def _fetch_and_extract(
             content="",
             elapsed_ms=elapsed,
             error=f"URL blocked: {e}",
-        ), ""
+        ), set()
 
-    # Cache fast path — but we still need raw HTML for link discovery.
-    # Strategy: check cache; if hit, still fetch raw once for links (cheaper
-    # than extracting twice) but only if we might still need to discover links.
-    # Actually: callers pass cache=None or handle this externally. For now,
-    # when a cache hit exists, return it and an empty raw_html — the caller
-    # will then skip link discovery for that page (acceptable: cached pages
-    # rarely change their link graph quickly).
+    # Cache fast path: return cached content AND cached links so the crawl
+    # loop can still traverse the site on repeat runs.
     if cache is not None:
         cached = cache.get(url, detail.value)
         if cached is not None:
@@ -238,7 +238,7 @@ async def _fetch_and_extract(
                 meta=cached.get("meta", {}),
                 elapsed_ms=elapsed,
                 from_cache=True,
-            ), ""
+            ), set(cached.get("_links", []))
 
     merged_headers = {**DEFAULT_HEADERS, **headers}
     if cache is not None:
@@ -253,7 +253,7 @@ async def _fetch_and_extract(
         async with httpx.AsyncClient(
             headers=merged_headers,
             timeout=httpx.Timeout(timeout),
-            follow_redirects=True,
+            follow_redirects=False,
             proxy=proxy,
             verify=verify_ssl,
             trust_env=True,
@@ -265,7 +265,9 @@ async def _fetch_and_extract(
                 if cookie_str:
                     client.headers["Cookie"] = cookie_str
 
-            resp = await client.get(url)
+            resp = await _get_following_safe_redirects(
+                client, url, allow_private_addresses=allow_private_addresses
+            )
             status_code = resp.status_code
 
             if status_code == 304 and cache is not None:
@@ -281,7 +283,7 @@ async def _fetch_and_extract(
                         meta=cached.get("meta", {}),
                         elapsed_ms=elapsed,
                         from_cache=True,
-                    ), ""
+                    ), set(cached.get("_links", []))
 
             resp.raise_for_status()
 
@@ -296,7 +298,7 @@ async def _fetch_and_extract(
                             content="",
                             elapsed_ms=elapsed,
                             error=f"Content-Length {cl} exceeds max_bytes ({max_bytes})",
-                        ), ""
+                        ), set()
                 except ValueError:
                     pass
 
@@ -309,7 +311,7 @@ async def _fetch_and_extract(
                     content="",
                     elapsed_ms=elapsed,
                     error=f"response body ({len(body)} bytes) exceeds max_bytes ({max_bytes})",
-                ), ""
+                ), set()
 
             html = resp.text
             etag = resp.headers.get("etag")
@@ -322,7 +324,7 @@ async def _fetch_and_extract(
             content="",
             elapsed_ms=elapsed,
             error=f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
-        ), ""
+        ), set()
     except Exception as e:
         logger.debug("crawl fetch failed for %s", url, exc_info=True)
         elapsed = (time.perf_counter() - t0) * 1000
@@ -332,9 +334,12 @@ async def _fetch_and_extract(
             content="",
             elapsed_ms=elapsed,
             error=str(e) or type(e).__name__,
-        ), ""
+        ), set()
 
-    # Extract
+    # Extract links from the raw HTML before running content extractor.
+    links = _extract_links(html, url)
+
+    # Extract content.
     if detail == Detail.raw:
         title = _title_from_lxml(html)
         content, meta = html, {}
@@ -367,9 +372,10 @@ async def _fetch_and_extract(
             },
             etag=etag,
             last_modified=last_modified,
+            links=list(links),
         )
 
-    return result, html
+    return result, links
 
 
 # ---------------------------------------------------------------------------
@@ -443,6 +449,16 @@ async def crawl(
     ua = user_agent or DEFAULT_HEADERS["User-Agent"]
     req_headers = {**(headers or {}), "User-Agent": ua}
 
+    # Validate start_url before any I/O — including robots.txt prefetch.
+    try:
+        _validate_url(start_url, allow_private_addresses=allow_private_addresses)
+    except UrlNotAllowedError as e:
+        return CrawlResult(
+            start_url=start_url,
+            elapsed_ms=(time.perf_counter() - t0) * 1000,
+            error=f"URL blocked: {e}",
+        )
+
     robots = None
     if respect_robots:
         robots = await _load_robots(
@@ -470,33 +486,84 @@ async def crawl(
             await asyncio.sleep(wait / 1000.0)
         last_hit[origin] = time.monotonic() * 1000
 
-    async def _fetch_one(url: str) -> tuple[FetchResult, str]:
+    async def _fetch_one(url: str) -> tuple[FetchResult, set[str]]:
         async with sem:
             origin = urlparse(url).netloc
             await _respect_delay(origin)
             if render:
-                # Rendered path: use fetch() and accept double-parse cost.
-                from .core import fetch as _core_fetch
+                # Rendered path: call _render_page directly so we have the raw
+                # HTML for link extraction regardless of detail level.
+                t0_r = time.perf_counter()
+                try:
+                    _validate_url(url, allow_private_addresses=allow_private_addresses)
+                    raw_html, status_code = await _render_page(
+                        url,
+                        headers=headers,
+                        cookies=cookies,
+                        proxy=proxy,
+                        **render_kwargs,
+                    )
+                except UrlNotAllowedError as e:
+                    elapsed = (time.perf_counter() - t0_r) * 1000
+                    return FetchResult(
+                        url=url,
+                        status_code=0,
+                        content="",
+                        elapsed_ms=elapsed,
+                        error=f"URL blocked: {e}",
+                    ), set()
+                except Exception as e:
+                    logger.debug("render failed for %s", url, exc_info=True)
+                    elapsed = (time.perf_counter() - t0_r) * 1000
+                    return FetchResult(
+                        url=url,
+                        status_code=0,
+                        content="",
+                        elapsed_ms=elapsed,
+                        error=str(e) or type(e).__name__,
+                    ), set()
 
-                r = await _core_fetch(
-                    url,
-                    detail=detail,
-                    render=True,
-                    headers=headers,
-                    cookies=cookies,
-                    proxy=proxy,
-                    timeout=timeout,
-                    verify_ssl=verify_ssl,
-                    max_bytes=max_bytes,
-                    allow_private_addresses=allow_private_addresses,
-                    cache=cache,
-                    **render_kwargs,
+                # Size check on rendered HTML.
+                if len(raw_html.encode("utf-8", errors="ignore")) > max_bytes:
+                    elapsed = (time.perf_counter() - t0_r) * 1000
+                    return FetchResult(
+                        url=url,
+                        status_code=status_code,
+                        content="",
+                        elapsed_ms=elapsed,
+                        error=f"rendered content exceeds max_bytes ({max_bytes})",
+                    ), set()
+
+                links = _extract_links(raw_html, url)
+
+                if detail == Detail.raw:
+                    content, title, meta = raw_html, _title_from_lxml(raw_html), {}
+                else:
+                    try:
+                        content, title, meta = EXTRACTORS[detail](raw_html, url)
+                        content = content or ""
+                    except Exception:
+                        logger.debug("render extraction failed, falling back", exc_info=True)
+                        content, title, meta = raw_html, _title_from_lxml(raw_html), {}
+
+                elapsed = (time.perf_counter() - t0_r) * 1000
+                r = FetchResult(
+                    url=url,
+                    status_code=status_code,
+                    content=content,
+                    title=title,
+                    meta=meta,
+                    elapsed_ms=elapsed,
                 )
-                # For rendered pages, link discovery uses the final content
-                # if the detail is raw; otherwise we skip discovery from
-                # extracted content (caller is typically interested in a
-                # single rendered page, not a deep rendered crawl).
-                return r, (r.content if detail == Detail.raw else "")
+                if cache is not None and r.ok:
+                    cache.put(
+                        url,
+                        detail.value,
+                        {"content": r.content, "title": r.title, "meta": r.meta},
+                        links=list(links),
+                    )
+                return r, links
+
             return await _fetch_and_extract(
                 url,
                 detail=detail,
@@ -531,14 +598,13 @@ async def crawl(
         tasks = [_fetch_one(url) for url, _ in batch]
         results = await asyncio.gather(*tasks)
 
-        for (url, depth), (result, raw_html) in zip(batch, results, strict=True):
+        for (url, depth), (result, links) in zip(batch, results, strict=True):
             pages.append(result)
 
-            if depth >= max_depth or not raw_html:
+            if depth >= max_depth:
                 continue
 
-            new_links = _extract_links(raw_html, url)
-            for link in new_links:
+            for link in links:
                 if link in visited or link in discovered:
                     continue
                 if _should_skip(link):

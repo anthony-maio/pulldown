@@ -162,6 +162,7 @@ class PageCache:
         *,
         etag: str | None = None,
         last_modified: str | None = None,
+        links: list[str] | None = None,
     ) -> None:
         """Store an entry in the cache, atomically."""
         key = self._key(url, detail)
@@ -174,6 +175,8 @@ class PageCache:
             entry["_etag"] = etag
         if last_modified:
             entry["_last_modified"] = last_modified
+        if links is not None:
+            entry["_links"] = links
         try:
             self._atomic_write(path, entry)
         except OSError as e:

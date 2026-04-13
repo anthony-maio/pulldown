@@ -39,30 +39,34 @@ pulldown cache stats
 ### Python
 
 ```python
+import asyncio
 from pulldown import fetch, fetch_many, crawl, Detail, PageCache
 
-# Single fetch
-result = await fetch("https://example.com", detail=Detail.readable)
-print(result.title, result.content)
+async def main():
+    # Single fetch
+    result = await fetch("https://example.com", detail=Detail.readable)
+    print(result.title, result.content)
 
-# Batch fetch with caching
-cache = PageCache(ttl=3600)
-results = await fetch_many(
-    ["https://a.com", "https://b.com"],
-    concurrency=5,
-    cache=cache,
-    retries=2,
-)
+    # Batch fetch with caching
+    cache = PageCache(ttl=3600)
+    results = await fetch_many(
+        ["https://a.com", "https://b.com"],
+        concurrency=5,
+        cache=cache,
+        retries=2,
+    )
 
-# Crawl a docs site
-result = await crawl(
-    "https://docs.example.com/",
-    max_pages=50,
-    max_depth=2,
-    respect_robots=True,
-    per_domain_delay_ms=200,
-)
-markdown = result.to_markdown()
+    # Crawl a docs site
+    crawl_result = await crawl(
+        "https://docs.example.com/",
+        max_pages=50,
+        max_depth=2,
+        respect_robots=True,
+        per_domain_delay_ms=200,
+    )
+    markdown = crawl_result.to_markdown()
+
+asyncio.run(main())
 ```
 
 ### MCP

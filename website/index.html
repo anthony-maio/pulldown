@@ -490,35 +490,41 @@ result = await client.fetch("https://example.com")
         <div class="quickstart-grid">
           <div class="quickstart-col reveal">
             <div class="code-label">Install</div>
-            <pre class="code-block"><code>pip install pulldown-mcp</code></pre>
+            <pre class="code-block"><code>pip install pulldown
+pip install 'pulldown[render]'   # + Playwright
+pip install 'pulldown[mcp]'      # + MCP server</code></pre>
 
             <div class="code-label" style="margin-top:var(--space-6);">CLI</div>
-            <pre class="code-block"><code>pulldown fetch https://example.com
-pulldown fetch https://example.com --level minimal
-pulldown fetch https://example.com --level full --output out.md
-pulldown batch urls.txt --level readable</code></pre>
+            <pre class="code-block"><code>pulldown get https://example.com
+pulldown get https://example.com --detail minimal
+pulldown get https://example.com --render
+pulldown crawl https://docs.example.com --max-pages 20</code></pre>
           </div>
 
           <div class="quickstart-col reveal">
             <div class="code-label">Python API</div>
-            <pre class="code-block"><code>from pulldown import PulldownClient
+            <pre class="code-block"><code>import asyncio
+from pulldown import fetch, fetch_many, Detail
 
-client = PulldownClient()
+async def main():
+    # Single fetch
+    result = await fetch(
+        "https://example.com/article",
+        detail=Detail.readable,
+    )
+    print(result.title)
+    print(result.content)
 
-# Single fetch
-result = await client.fetch(
-    "https://example.com/article",
-    detail_level="readable"
-)
-print(result.markdown)
+    # Batch
+    results = await fetch_many(
+        ["https://a.com", "https://b.com"],
+        detail=Detail.minimal,
+        concurrency=5,
+    )
+    for r in results:
+        print(r.url, len(r.content))
 
-# Batch
-results = await client.fetch_batch(
-    ["https://a.com", "https://b.com"],
-    detail_level="minimal"
-)
-for r in results:
-    print(r.url, len(r.markdown))</code></pre>
+asyncio.run(main())</code></pre>
           </div>
         </div>
 
@@ -551,8 +557,8 @@ for r in results:
               </svg>
             </div>
             <div class="security-name">SSRF Guard</div>
-            <p class="security-desc">Resolves hostnames to IP before opening the connection. Blocks private (RFC 1918), loopback, link-local, and reserved ranges. The check uses the final resolved address, not the hostname string.</p>
-            <div class="security-detail">pre-connect IP resolution · predicate check · configurable allow-list</div>
+            <p class="security-desc">Resolves hostnames to IP before opening the connection. Blocks private (RFC 1918), loopback, link-local, and reserved ranges. Every redirect hop is validated — a public URL that 302s to 127.0.0.1 is blocked before the redirect is followed.</p>
+            <div class="security-detail">pre-connect IP resolution · redirect chain validated · configurable allow-list</div>
           </article>
 
           <article class="security-card reveal">
@@ -579,7 +585,7 @@ for r in results:
             </div>
             <div class="security-name">Scheme Validation</div>
             <p class="security-desc">Only http:// and https:// URLs are accepted. file://, gopher://, ftp://, and other schemes are rejected before a connection is attempted.</p>
-            <div class="security-detail">scheme allowlist · early rejection · no redirect bypass</div>
+            <div class="security-detail">scheme allowlist · early rejection · redirect chain validated</div>
           </article>
         </div>
       </div>
@@ -606,14 +612,13 @@ for r in results:
               <div class="integration-title">CLI</div>
               <div class="integration-badge">terminal</div>
             </div>
-            <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>pulldown fetch https://example.com \
-  --level readable \
-  --output article.md
+            <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>pulldown get https://example.com \
+  --detail readable
 
 pulldown crawl https://docs.example.com \
-  --depth 2 \
+  --max-depth 2 \
   --max-pages 20 \
-  --level minimal</code></pre>
+  --detail minimal</code></pre>
           </article>
 
           <article class="integration-panel reveal">
@@ -627,16 +632,12 @@ pulldown crawl https://docs.example.com \
               <div class="integration-title">Python API</div>
               <div class="integration-badge">async</div>
             </div>
-            <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>from pulldown import PulldownClient
+            <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>from pulldown import fetch, Detail
 
-client = PulldownClient(
-    max_bytes=1_000_000,
-    ssrf_guard=True,
-)
-
-result = await client.fetch(
+result = await fetch(
     url,
-    detail_level="readable",
+    detail=Detail.readable,
+    max_bytes=1_000_000,
 )</code></pre>
           </article>
 
@@ -656,10 +657,9 @@ result = await client.fetch(
   "mcpServers": {
     "pulldown": {
       "command": "python",
-      "args": ["-m", "pulldown.mcp"],
+      "args": ["-m", "pulldown.mcp_server"],
       "env": {
-        "PULLDOWN_SSRF_GUARD": "true",
-        "PULLDOWN_MAX_BYTES": "1000000"
+        "PULLDOWN_CACHE_DIR": "~/.cache/pulldown"
       }
     }
   }

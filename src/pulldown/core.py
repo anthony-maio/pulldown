@@ -19,7 +19,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -153,6 +153,35 @@ def _validate_url(url: str, *, allow_private_addresses: bool) -> None:
             f"host {parsed.hostname!r} resolves to a private/loopback address; "
             "pass allow_private_addresses=True to override"
         )
+
+
+async def _get_following_safe_redirects(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    allow_private_addresses: bool,
+    max_redirects: int = 10,
+) -> httpx.Response:
+    """GET that manually follows redirects, validating each target for SSRF.
+
+    Raises UrlNotAllowedError if any redirect destination is a private/blocked
+    host. Raises httpx.TooManyRedirects if the chain exceeds max_redirects.
+    """
+    current = url
+    for _ in range(max_redirects + 1):
+        resp = await client.get(current)
+        if not resp.is_redirect:
+            return resp
+        location = resp.headers.get("location", "")
+        if not location:
+            return resp
+        next_url = urljoin(current, location)
+        # Raises UrlNotAllowedError before we ever open a connection to the target.
+        _validate_url(next_url, allow_private_addresses=allow_private_addresses)
+        current = next_url
+    raise httpx.TooManyRedirects(
+        f"Exceeded {max_redirects} redirects", request=resp.request  # type: ignore[possibly-undefined]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -489,7 +518,7 @@ async def fetch(
             async with httpx.AsyncClient(
                 headers=merged_headers,
                 timeout=httpx.Timeout(timeout),
-                follow_redirects=True,
+                follow_redirects=False,
                 proxy=proxy,
                 verify=verify_ssl,
                 trust_env=True,
@@ -505,7 +534,11 @@ async def fetch(
                 delay_ms = retry_delay_ms
                 while True:
                     try:
-                        resp = await client.get(url)
+                        resp = await _get_following_safe_redirects(
+                            client,
+                            url,
+                            allow_private_addresses=allow_private_addresses,
+                        )
                     except (httpx.TransportError, httpx.TimeoutException):
                         if attempt >= retries:
                             raise
