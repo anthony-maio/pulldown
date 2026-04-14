@@ -25,6 +25,9 @@ pip install 'pulldown[all]'          # everything
 Core installs include Brotli support, so `br`-compressed HTML is decoded before
 `minimal`, `readable`, `full`, or `raw` processing.
 
+Core installs also include `lxml_html_clean`, avoiding the missing-helper import
+issue some agent sandboxes hit on older releases.
+
 For rendered pages, also run `playwright install chromium` once.
 
 ## Quick Start

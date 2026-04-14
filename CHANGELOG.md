@@ -2,6 +2,18 @@
 
 All notable changes to pulldown will be documented here.
 
+## [0.3.1] - 2026-04-13
+
+### Added
+- Regression coverage to ensure core runtime dependencies and the shipped
+  agent skill stay aligned with install and sandbox usage guidance.
+
+### Changed
+- Core installs now include `lxml_html_clean` directly so agent sandboxes do
+  not have to patch that dependency manually after install.
+- The bundled `pulldown` agent skill now includes explicit install commands,
+  sandbox-only `--no-verify` guidance, and version-aware notes for `0.3.1+`.
+
 ## [0.3.0] - 2026-04-13
 
 ### Added
