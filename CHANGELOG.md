@@ -2,6 +2,29 @@
 
 All notable changes to pulldown will be documented here.
 
+## [0.4.0] - 2026-04-14
+
+### Added
+- Hybrid page-type routing for `detail="readable"` with a shared rule engine,
+  bundled classifier, abstention path, and post-extraction quality fallback.
+- Stable nested routing diagnostics under `meta["routing"]`, including page
+  type, strategy used, confidence, abstention, quality grade, and render
+  recommendations.
+- Opt-in JSONL routing logs for Python, CLI, crawl, and MCP usage.
+- A bundled routing model artifact plus offline training utilities for
+  classifier maintenance without adding `scikit-learn` as a runtime dependency.
+- MCP `include_meta=True` support so clients can request routing metadata
+  without changing the default content-only response shape.
+
+### Changed
+- `readable` now means "auto-route to the most readable strategy" rather than
+  "always use the article extractor".
+- Structured/dashboard/listing pages now route through the shared router in
+  both `fetch()` and `crawl()`, keeping metadata and fallback behavior
+  consistent across surfaces.
+- The supported routing contract is now `meta["routing"]`; older flat routing
+  keys are no longer the public interface.
+
 ## [0.3.1] - 2026-04-13
 
 ### Added

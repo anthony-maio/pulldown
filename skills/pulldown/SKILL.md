@@ -17,9 +17,9 @@ pip install 'pulldown[render]'
 pip install 'pulldown[mcp]'
 ```
 
-`pulldown 0.3.1` and newer include direct Brotli and `lxml_html_clean` runtime
-dependencies, so old `0.2.0` issues with compressed raw/full output or missing
-HTML-clean helpers should not require manual repair.
+`pulldown 0.4.0` and newer include direct Brotli and `lxml_html_clean` runtime
+dependencies plus page-type aware routing, so old `0.2.0` compressed-output
+issues and pre-routing extraction failures should not require manual repair.
 
 If an agent is running inside a sandbox with broken or self-signed TLS trust,
 the CLI escape hatch is:
@@ -56,9 +56,13 @@ The agent picks the detail level. **Default to `readable`**. Only change when th
 
 **Do not default to `full`.** It includes navigation and footer boilerplate, which costs tokens without adding meaning for most pages.
 
-`pulldown` routing metadata exposes the detected page type and the strategy
-actually used (`article`, `structured`, `full`, `raw`) so agents can
-inspect `result.meta` before deciding whether to retry with a different detail level.
+`pulldown` routing metadata is nested under `result.meta["routing"]`. Inspect
+that object for `page_type`, `strategy_used`, `confidence`, `abstained`, and
+`render_recommended` before deciding whether to retry with a different detail level.
+
+If you want offline examples for retraining or debugging, add `--routing-log path.jsonl`
+in the CLI, `routing_log_path="path.jsonl"` in Python, or set `PULLDOWN_ROUTING_LOG`
+for the MCP server.
 
 ## When to render (`render=True`)
 
@@ -125,6 +129,7 @@ For transient errors (5xx, 429, connection failures), pass `retries=2, retry_del
 pulldown get https://example.com
 pulldown get https://example.com -d minimal -j   # JSON output
 pulldown get https://example.com -d structured   # listings, dashboards, leaderboards
+pulldown get https://example.com --routing-log ./routing.jsonl
 pulldown get https://example.com --no-verify     # only for broken sandbox TLS
 
 # JS-heavy page with lazy loading
@@ -148,6 +153,7 @@ When connected via MCP, three tools are exposed:
 - `pulldown_crawl(start_url, detail, max_pages, max_depth, concurrency, render, include_pattern, exclude_pattern)` — bounded crawl
 
 The MCP server's HTTP transport binds to `127.0.0.1` by default. It inherits cache settings from `PULLDOWN_CACHE_DIR` environment variable.
+Pass `include_meta=True` if the agent needs the nested routing object in the response.
 
 ## Common pitfalls
 

@@ -6,6 +6,7 @@ Pull down web pages as clean Markdown for LLM agents.
 - Optional Chromium rendering for JS-heavy pages
 - Five detail levels: `minimal`, `readable`, `structured`, `full`, `raw`
 - Core installs decode Brotli-compressed pages correctly
+- Page-type aware routing with nested `meta["routing"]` diagnostics
 - Concurrent batch fetching with `fetch_many()`
 - Bounded site crawling with `robots.txt` support and per-domain politeness
 - Validator-based caching (ETag / Last-Modified) with atomic writes
@@ -53,7 +54,8 @@ from pulldown import fetch, fetch_many, crawl, Detail, PageCache
 async def main():
     # Single fetch
     result = await fetch("https://example.com", detail=Detail.readable)
-    print(result.title, result.content)
+    print(result.title)
+    print(result.meta["routing"])
 
     # Batch fetch with caching
     cache = PageCache(ttl=3600)
@@ -105,20 +107,40 @@ Environment variables:
 | `PULLDOWN_CACHE_DIR` | _unset_ | Enable caching to this directory |
 | `PULLDOWN_CACHE_TTL` | `3600` | Cache TTL in seconds |
 | `PULLDOWN_ALLOW_PRIVATE` | `0` | Set to `1` to allow private addresses |
+| `PULLDOWN_ROUTING_LOG` | _unset_ | Append per-page routing diagnostics JSONL |
 
 ## Detail Levels
 
 | Level | Output | Best for |
 |---|---|---|
 | `minimal` | Title + plain text | Lowest-token summarisation |
-| `readable` | Clean Markdown with links | Articles, blog posts, docs pages with a clear narrative body (default) |
+| `readable` | Auto-routed readable Markdown with links | Default. Uses article extraction for narrative pages and routes non-article pages to a better strategy |
 | `structured` | Hierarchy-preserving Markdown with summarized tables | Dashboards, listings, landing pages, and table-heavy app views |
 | `full` | Full-page Markdown incl. chrome | Pages without clear article body |
 | `raw` | Untouched HTML | Custom parsing downstream |
 
 `readable` now routes dashboard and listing pages toward a structured extractor
 instead of trying to flatten them into pseudo-articles. Result metadata includes
-the detected page type and extraction strategy so agents can branch explicitly.
+the detected page type and extraction strategy under `meta["routing"]` so
+agents can branch explicitly.
+
+Example routing payload:
+
+```python
+{
+    "page_type": "listing",
+    "source": "rules",
+    "confidence": 1.0,
+    "abstained": False,
+    "strategy_used": "structured",
+    "quality_grade": "high",
+    "render_recommended": False,
+}
+```
+
+Use `--routing-log path.jsonl` in the CLI or `routing_log_path="path.jsonl"`
+in Python to capture feature vectors, probabilities, fallback decisions, and
+quality outcomes for offline retraining.
 
 ## Security
 
@@ -132,6 +154,18 @@ Responses above 10 MiB are rejected by default (`max_bytes` parameter).
 
 Only `http` and `https` schemes are accepted; `file:`, `ftp:`, etc. are
 rejected.
+
+## MCP Metadata
+
+The MCP tools keep their default plain-content behavior, but callers can ask
+for structured metadata explicitly:
+
+```python
+await pulldown("https://example.com", include_meta=True)
+```
+
+That JSON response includes the same nested `meta["routing"]` object returned
+by the Python API.
 
 ## License
 
