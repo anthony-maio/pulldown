@@ -16,6 +16,7 @@ class TestDetail:
     def test_enum_values(self):
         assert Detail.minimal.value == "minimal"
         assert Detail.readable.value == "readable"
+        assert Detail.structured.value == "structured"
         assert Detail.full.value == "full"
         assert Detail.raw.value == "raw"
 

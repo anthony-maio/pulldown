@@ -4,7 +4,7 @@ Pull down web pages as clean Markdown for LLM agents.
 
 - HTTP-first with browser-like defaults
 - Optional Chromium rendering for JS-heavy pages
-- Four detail levels: `minimal`, `readable`, `full`, `raw`
+- Five detail levels: `minimal`, `readable`, `structured`, `full`, `raw`
 - Core installs decode Brotli-compressed pages correctly
 - Concurrent batch fetching with `fetch_many()`
 - Bounded site crawling with `robots.txt` support and per-domain politeness
@@ -37,6 +37,7 @@ For rendered pages, also run `playwright install chromium` once.
 ```bash
 pulldown get https://example.com
 pulldown get https://example.com --detail minimal
+pulldown get https://example.com --detail structured
 pulldown get https://example.com --render --scroll 3
 pulldown crawl https://docs.example.com --max-pages 20 --delay-ms 200
 pulldown bench https://example.com --runs 5
@@ -110,9 +111,14 @@ Environment variables:
 | Level | Output | Best for |
 |---|---|---|
 | `minimal` | Title + plain text | Lowest-token summarisation |
-| `readable` | Clean Markdown with links | RAG, reading, structured landing pages (default) |
+| `readable` | Clean Markdown with links | Articles, blog posts, docs pages with a clear narrative body (default) |
+| `structured` | Hierarchy-preserving Markdown with summarized tables | Dashboards, listings, landing pages, and table-heavy app views |
 | `full` | Full-page Markdown incl. chrome | Pages without clear article body |
 | `raw` | Untouched HTML | Custom parsing downstream |
+
+`readable` now routes dashboard and listing pages toward a structured extractor
+instead of trying to flatten them into pseudo-articles. Result metadata includes
+the detected page type and extraction strategy so agents can branch explicitly.
 
 ## Security
 

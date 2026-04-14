@@ -5,7 +5,7 @@ description: Fetch web pages as clean Markdown for downstream LLM processing. Us
 
 # Using pulldown
 
-`pulldown` turns web pages into clean Markdown for LLM consumption. It has an opinionated pipeline: HTTP-first, optional Chromium rendering, four detail levels, validator-based caching, and an SSRF-safe default.
+`pulldown` turns web pages into clean Markdown for LLM consumption. It has an opinionated pipeline: HTTP-first, optional Chromium rendering, five detail levels, validator-based caching, and an SSRF-safe default.
 
 ## Install
 
@@ -38,6 +38,7 @@ Need one page?           → fetch(url, detail=...)
 Need many pages?         → fetch_many(urls, concurrency=5)
 Need a whole site?       → crawl(start_url, max_pages=...)
 Page is JS-heavy (SPA)?  → add render=True
+Page is dashboard/listing/table-heavy? → use detail=`structured`
 Repeated fetches?        → pass a PageCache
 ```
 
@@ -48,11 +49,16 @@ The agent picks the detail level. **Default to `readable`**. Only change when th
 | Level | Use when |
 |---|---|
 | `minimal` | You need the smallest possible token count. Output is title + plain text, no links. |
-| `readable` | You want the article body as Markdown with links. This is what you want 90% of the time. |
-| `full` | The page is mostly navigation/sidebar/chrome with no clear article body (e.g. marketing landing pages, reference indexes). |
+| `readable` | You want an article-like body as Markdown with links. This is still the default for posts, docs, and narrative pages. |
+| `structured` | The page is a dashboard, leaderboard, listing, landing page, or table-heavy app view. It preserves headings and summarizes large tables instead of dumping everything. |
+| `full` | You need the full page chrome because neither `readable` nor `structured` fits. |
 | `raw` | You need the raw HTML for custom parsing. |
 
 **Do not default to `full`.** It includes navigation and footer boilerplate, which costs tokens without adding meaning for most pages.
+
+`pulldown` routing metadata exposes the detected page type and the strategy
+actually used (`article`, `structured`, `full`, `raw`) so agents can
+inspect `result.meta` before deciding whether to retry with a different detail level.
 
 ## When to render (`render=True`)
 
@@ -118,6 +124,7 @@ For transient errors (5xx, 429, connection failures), pass `retries=2, retry_del
 # single page
 pulldown get https://example.com
 pulldown get https://example.com -d minimal -j   # JSON output
+pulldown get https://example.com -d structured   # listings, dashboards, leaderboards
 pulldown get https://example.com --no-verify     # only for broken sandbox TLS
 
 # JS-heavy page with lazy loading

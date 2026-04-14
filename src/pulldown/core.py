@@ -2,10 +2,11 @@
 Core fetch + extract pipeline.
 
 Detail levels (agent picks one):
-    minimal   – title + plain text, no links/images. Smallest token count.
-    readable  – article body as Markdown with links. Default.
-    full      – full-page Markdown including nav/sidebar/footer.
-    raw       – raw HTML, no extraction (for custom parsing).
+    minimal    – title + plain text, no links/images. Smallest token count.
+    readable   – article body as Markdown with links. Default.
+    structured – hierarchy-preserving Markdown for dashboards/listings/tables.
+    full       – full-page Markdown including nav/sidebar/footer.
+    raw        – raw HTML, no extraction (for custom parsing).
 """
 
 from __future__ import annotations
@@ -46,6 +47,7 @@ class Detail(str, enum.Enum):
 
     minimal = "minimal"
     readable = "readable"
+    structured = "structured"
     full = "full"
     raw = "raw"
 
@@ -214,6 +216,7 @@ _BOILERPLATE_TOKENS = frozenset(
         "sharing",
     }
 )
+_STRUCTURED_TABLE_ROW_LIMIT = 8
 
 
 def _metadata_from_document(doc: Any) -> dict[str, Any]:
@@ -275,6 +278,124 @@ def _markdown_image_count(markdown: str) -> int:
     return sum(1 for line in markdown.splitlines() if line.lstrip().startswith("!["))
 
 
+def _body_node(tree: Any) -> Any | None:
+    bodies = tree.xpath("//body")
+    return bodies[0] if bodies else None
+
+
+def _page_stats(node: Any) -> dict[str, int]:
+    if node is None:
+        return {
+            "paragraphs": 0,
+            "tables": 0,
+            "rows": 0,
+            "list_items": 0,
+            "headings": 0,
+            "articles": 0,
+            "sections": 0,
+            "words": 0,
+        }
+
+    text = _squash_whitespace(" ".join(node.itertext()))
+    return {
+        "paragraphs": len(node.xpath(".//p")),
+        "tables": len(node.xpath(".//table")),
+        "rows": len(node.xpath(".//table//tr")),
+        "list_items": len(node.xpath(".//ul/li | .//ol/li")),
+        "headings": len(node.xpath(".//*[self::h1 or self::h2 or self::h3 or self::h4]")),
+        "articles": len(node.xpath(".//article")),
+        "sections": len(node.xpath(".//section")),
+        "words": len(text.split()),
+    }
+
+
+def _node_depth(node: Any) -> int:
+    depth = 0
+    current = node
+    while current is not None and isinstance(current.tag, str):
+        depth += 1
+        current = current.getparent()
+    return depth
+
+
+def _structured_root_score(stats: dict[str, int]) -> int:
+    return (
+        stats["rows"] * 20
+        + stats["tables"] * 40
+        + min(stats["articles"], 40) * 14
+        + min(stats["sections"], 20) * 10
+        + min(stats["headings"], 40) * 6
+        + min(stats["list_items"], 60) * 2
+    )
+
+
+def _classify_page(html: str) -> dict[str, Any]:
+    from lxml import etree
+
+    tree = etree.HTML(html)
+    if tree is None:
+        return {
+            "page_type": "generic",
+            "readerable": False,
+            "extraction_quality": "low",
+        }
+
+    body = _body_node(tree)
+    if body is None:
+        body = tree
+    readable_landmark = _select_readable_landmark(tree)
+    content_root = readable_landmark if readable_landmark is not None else body
+    content_stats = _page_stats(content_root)
+    document_stats = _page_stats(body)
+
+    dashboard_like = (
+        document_stats["rows"] >= 12
+        or (document_stats["tables"] >= 2 and document_stats["rows"] >= 8)
+        or document_stats["articles"] >= 8
+        or (document_stats["rows"] >= 6 and document_stats["headings"] >= 4)
+        or (
+            document_stats["tables"] >= 1
+            and document_stats["rows"] >= 8
+            and (document_stats["articles"] >= 2 or document_stats["headings"] >= 3)
+        )
+        or (
+            document_stats["headings"] >= 6
+            and document_stats["list_items"] >= 12
+            and content_stats["paragraphs"] <= 6
+        )
+    )
+    article_like = (
+        not dashboard_like
+        and content_stats["paragraphs"] >= 3
+        and content_stats["words"] >= 80
+        and content_stats["rows"] < 6
+        and content_stats["tables"] == 0
+        and content_stats["list_items"] < 20
+    )
+
+    if dashboard_like:
+        return {
+            "page_type": "dashboard",
+            "readerable": False,
+            "extraction_quality": (
+                "high"
+                if document_stats["rows"] >= 40 or document_stats["articles"] >= 12
+                else "medium"
+            ),
+        }
+    if article_like:
+        return {
+            "page_type": "article",
+            "readerable": True,
+            "extraction_quality": "high" if content_stats["words"] >= 350 else "medium",
+        }
+    return {
+        "page_type": "generic",
+        "readerable": content_stats["paragraphs"] >= 3 and content_stats["words"] >= 80,
+        "extraction_quality": "medium" if content_stats["words"] >= 120 else "low",
+    }
+
+
 def _select_readable_landmark(tree: Any) -> Any | None:
     candidates = tree.xpath("//main | //*[@role='main'] | //article")
     if candidates:
@@ -288,8 +409,46 @@ def _select_readable_landmark(tree: Any) -> Any | None:
                 + len(_squash_whitespace(" ".join(node.itertext()))),
             ),
         )
-    bodies = tree.xpath("//body")
-    return bodies[0] if bodies else None
+    return _body_node(tree)
+
+
+def _select_structured_landmark(tree: Any) -> Any | None:
+    body = _body_node(tree)
+    candidates: list[Any] = []
+
+    if body is not None:
+        candidates.append(body)
+    candidates.extend(tree.xpath("//main | //*[@role='main']"))
+
+    readable_landmark = _select_readable_landmark(tree)
+    node = readable_landmark
+    while node is not None and isinstance(node.tag, str):
+        candidates.append(node)
+        if node.tag.lower() == "body":
+            break
+        node = node.getparent()
+
+    seen: set[int] = set()
+    unique_candidates: list[Any] = []
+    for candidate in candidates:
+        marker = id(candidate)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        unique_candidates.append(candidate)
+
+    if not unique_candidates:
+        return body
+
+    scored: list[tuple[Any, dict[str, int], int, int]] = []
+    for candidate in unique_candidates:
+        stats = _page_stats(candidate)
+        scored.append((candidate, stats, _structured_root_score(stats), _node_depth(candidate)))
+
+    best_score = max(score for _, _, score, _ in scored)
+    eligible = [item for item in scored if item[2] >= max(best_score * 0.8, 20)]
+    chosen = min(eligible or scored, key=lambda item: (item[1]["words"], -item[3]))
+    return chosen[0]
 
 
 def _node_tokens(node: Any) -> set[str]:
@@ -401,6 +560,96 @@ def _extract_cleaned_landmark_markdown(html: str, url: str) -> str:
     if isinstance(result, dict):
         return str(result.get("content", "") or "")
     return str(result)
+
+
+def _cell_texts(row: Any) -> list[str]:
+    cells = row.xpath("./th | ./td")
+    return [_squash_whitespace(" ".join(cell.itertext())) for cell in cells]
+
+
+def _heading_prefix(level: int) -> str:
+    return "#" * max(2, min(level, 4))
+
+
+def _extract_structured(html: str, url: str) -> tuple[str, str | None, dict]:
+    from lxml import etree
+
+    tree = etree.HTML(html)
+    if tree is None:
+        return "", _title_from_lxml(html), {}
+
+    landmark = _select_structured_landmark(tree)
+    if landmark is None:
+        return "", _title_from_lxml(html), {}
+
+    cleaned = deepcopy(landmark)
+    _clean_landmark(cleaned, url)
+
+    lines: list[str] = []
+
+    def walk(node: Any) -> None:
+        if not isinstance(node.tag, str):
+            return
+
+        tag = node.tag.lower()
+
+        if tag in {"h1", "h2", "h3", "h4"}:
+            text = _squash_whitespace(" ".join(node.itertext()))
+            if text:
+                level = int(tag[1])
+                lines.append(f"{_heading_prefix(level)} {text}")
+                lines.append("")
+            return
+
+        if tag == "p":
+            text = _squash_whitespace(" ".join(node.itertext()))
+            if text:
+                lines.append(text)
+                lines.append("")
+            return
+
+        if tag in {"ul", "ol"}:
+            items = node.xpath("./li")
+            for item in items[:12]:
+                text = _squash_whitespace(" ".join(item.itertext()))
+                if text:
+                    lines.append(f"- {text}")
+            if items:
+                lines.append("")
+            return
+
+        if tag == "table":
+            rows = node.xpath(".//tr")
+            header_cells = _cell_texts(rows[0]) if rows else []
+            body_rows = rows[1:] if len(rows) > 1 else []
+            if header_cells:
+                lines.append(f"- Table columns: {' | '.join(header_cells)}")
+            if body_rows:
+                shown = body_rows[:_STRUCTURED_TABLE_ROW_LIMIT]
+                lines.append(f"- Showing first {len(shown)} of {len(body_rows)} rows")
+                for row in shown:
+                    values = _cell_texts(row)
+                    if values:
+                        trimmed = values[1:] if len(values) > 1 else values
+                        lines.append(f"- {' | '.join(trimmed)}")
+            lines.append("")
+            return
+
+        if tag in {"section", "article", "div", "main", "header", "body"}:
+            start = len(lines)
+            for child in node:
+                walk(child)
+            if len(lines) == start:
+                text = _squash_whitespace(" ".join(node.itertext()))
+                if text and len(text.split()) >= 2:
+                    lines.append(text)
+                    lines.append("")
+
+    walk(cleaned)
+
+    title = _title_from_lxml(html)
+    content = _normalize_readable_markdown("\n".join(lines))
+    return content, title, {}
 
 
 def _should_use_landmark_fallback(primary_markdown: str, fallback_markdown: str) -> bool:
@@ -578,6 +827,7 @@ def _title_from_lxml(html: str) -> str | None:
 EXTRACTORS = {
     Detail.minimal: _extract_minimal,
     Detail.readable: _extract_readable,
+    Detail.structured: _extract_structured,
     Detail.full: _extract_full,
 }
 
@@ -686,7 +936,7 @@ async def fetch(
     url : str
         The URL to fetch.
     detail : Detail | str
-        Extraction detail level: minimal, readable, full, raw.
+        Extraction detail level: minimal, readable, structured, full, raw.
     render : bool
         If True, use Playwright/Chromium for JS rendering.
     headers : dict, optional
@@ -902,6 +1152,11 @@ async def fetch(
             error=str(e) or type(e).__name__,
         )
 
+    page_analysis = _classify_page(html)
+    extraction_detail = detail
+    if detail == Detail.readable and page_analysis["page_type"] == "dashboard":
+        extraction_detail = Detail.structured
+
     # --- extract ---
     if detail == Detail.raw:
         elapsed = (time.perf_counter() - t0) * 1000
@@ -911,10 +1166,16 @@ async def fetch(
             status_code=status_code,
             content=html,
             title=title,
+            meta={
+                "page_type": page_analysis["page_type"],
+                "readerable": page_analysis["readerable"],
+                "extraction_quality": page_analysis["extraction_quality"],
+                "strategy_used": "raw",
+            },
             elapsed_ms=elapsed,
         )
     else:
-        extractor = EXTRACTORS[detail]
+        extractor = EXTRACTORS[extraction_detail]
         try:
             content, title, meta = extractor(html, url)
         except Exception as e:
@@ -926,6 +1187,13 @@ async def fetch(
                 content, title, meta = html, _title_from_lxml(html), {}
 
         elapsed = (time.perf_counter() - t0) * 1000
+        meta = {
+            **meta,
+            "page_type": page_analysis["page_type"],
+            "readerable": page_analysis["readerable"],
+            "extraction_quality": page_analysis["extraction_quality"],
+            "strategy_used": "article" if extraction_detail == Detail.readable else extraction_detail.value,
+        }
         result = FetchResult(
             url=url,
             status_code=status_code,

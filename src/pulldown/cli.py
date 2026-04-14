@@ -4,6 +4,7 @@ CLI interface for pulldown.
 Usage:
     pulldown get https://example.com
     pulldown get https://example.com --detail minimal
+    pulldown get https://example.com --detail structured
     pulldown get https://example.com --render --scroll 3
     pulldown crawl https://docs.example.com --max-pages 20
     pulldown bench https://example.com https://httpbin.org --runs 5
@@ -43,7 +44,7 @@ def main():
 @click.option(
     "--detail",
     "-d",
-    type=click.Choice(["minimal", "readable", "full", "raw"]),
+    type=click.Choice(["minimal", "readable", "structured", "full", "raw"]),
     default="readable",
     help="Extraction detail level.",
 )
@@ -175,7 +176,10 @@ def get(
 @main.command()
 @click.argument("start_url")
 @click.option(
-    "--detail", "-d", type=click.Choice(["minimal", "readable", "full", "raw"]), default="readable"
+    "--detail",
+    "-d",
+    type=click.Choice(["minimal", "readable", "structured", "full", "raw"]),
+    default="readable",
 )
 @click.option("--max-pages", type=int, default=50, help="Max pages to fetch.")
 @click.option("--max-depth", type=int, default=3, help="Max link depth.")

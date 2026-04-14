@@ -24,3 +24,14 @@ def test_repo_skill_covers_install_and_sandbox_usage():
     assert "--no-verify" in skill
     assert "Default to `readable`" in skill
     assert "0.3.1" in skill
+    assert "detail=`structured`" in skill
+    assert "page type" in skill
+
+
+def test_readme_documents_structured_mode():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "Five detail levels" in readme
+    assert "`structured`" in readme
+    assert "Hierarchy-preserving Markdown" in readme
+    assert "detected page type" in readme
