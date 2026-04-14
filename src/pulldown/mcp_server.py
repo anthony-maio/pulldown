@@ -17,6 +17,7 @@ Environment variables:
     PULLDOWN_CACHE_DIR      Enable caching with this directory.
     PULLDOWN_CACHE_TTL      Cache TTL in seconds. Default 3600.
     PULLDOWN_ALLOW_PRIVATE  Set to "1" to allow private/loopback addresses.
+    PULLDOWN_ROUTING_LOG    Append routing diagnostics JSONL to this path.
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ _cache_dir = os.environ.get("PULLDOWN_CACHE_DIR")
 _cache_ttl = int(os.environ.get("PULLDOWN_CACHE_TTL", "3600"))
 _cache = PageCache(_cache_dir, ttl=_cache_ttl) if _cache_dir else None
 _allow_private = os.environ.get("PULLDOWN_ALLOW_PRIVATE", "").strip() in ("1", "true", "yes")
+_routing_log_path = os.environ.get("PULLDOWN_ROUTING_LOG")
 
 
 @mcp.tool()
@@ -50,6 +52,7 @@ async def pulldown(
     render: bool = False,
     scroll_count: int = 0,
     timeout: float = 30.0,
+    include_meta: bool = False,
 ) -> str:
     """
     Fetch a URL and return clean Markdown content.
@@ -57,13 +60,15 @@ async def pulldown(
     Args:
         url: The URL to fetch.
         detail: Extraction level — "minimal" (plain text, smallest),
-                "readable" (article Markdown with links, default),
+                "readable" (auto-routed readable output, default),
+                "structured" (hierarchy-preserving dashboard/listing output),
                 "full" (entire page as Markdown), or "raw" (raw HTML).
         render: If true, use headless Chromium to render JavaScript.
                 Only needed for SPAs or JS-heavy pages.
         scroll_count: Number of viewport scrolls for lazy-loaded content
                       (only applies when render=true).
         timeout: HTTP timeout in seconds.
+        include_meta: If true, return JSON including metadata and routing info.
 
     Returns:
         Markdown content of the page, or an error message.
@@ -76,10 +81,24 @@ async def pulldown(
         render_scroll_count=scroll_count,
         allow_private_addresses=_allow_private,
         cache=_cache,
+        routing_log_path=_routing_log_path,
     )
 
     if not result.ok:
         return f"Error fetching {url}: {result.error}"
+
+    if include_meta:
+        return json.dumps(
+            {
+                "url": result.url,
+                "title": result.title,
+                "content": result.content,
+                "meta": result.meta,
+                "ok": result.ok,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
 
     parts = []
     if result.title:
@@ -95,16 +114,18 @@ async def pulldown_many(
     render: bool = False,
     concurrency: int = 5,
     timeout: float = 30.0,
+    include_meta: bool = False,
 ) -> str:
     """
     Fetch multiple URLs concurrently and return their Markdown content.
 
     Args:
         urls: List of URLs to fetch.
-        detail: Extraction level (minimal/readable/full/raw).
+        detail: Extraction level (minimal/readable/structured/full/raw).
         render: Use headless Chromium rendering.
         concurrency: Max concurrent fetches (default 5).
         timeout: HTTP timeout in seconds.
+        include_meta: Include metadata and routing diagnostics in each result.
 
     Returns:
         JSON array of results, each with url, title, content, ok, error.
@@ -117,6 +138,7 @@ async def pulldown_many(
         timeout=timeout,
         allow_private_addresses=_allow_private,
         cache=_cache,
+        routing_log_path=_routing_log_path,
     )
 
     output = []
@@ -130,6 +152,8 @@ async def pulldown_many(
             entry["content"] = r.content
         else:
             entry["error"] = r.error
+        if include_meta:
+            entry["meta"] = r.meta
         output.append(entry)
 
     return json.dumps(output, ensure_ascii=False, indent=2)
@@ -145,6 +169,7 @@ async def pulldown_crawl(
     render: bool = False,
     include_pattern: str | None = None,
     exclude_pattern: str | None = None,
+    include_meta: bool = False,
 ) -> str:
     """
     Crawl a site starting from a URL and return all pages as Markdown.
@@ -154,13 +179,14 @@ async def pulldown_crawl(
 
     Args:
         start_url: URL to start crawling from.
-        detail: Extraction level (minimal/readable/full/raw).
+        detail: Extraction level (minimal/readable/structured/full/raw).
         max_pages: Maximum pages to fetch (default 20, capped at 100).
         max_depth: Maximum link depth (default 2).
         concurrency: Concurrent fetches (default 3).
         render: Use headless Chromium rendering.
         include_pattern: Regex — only crawl URLs matching this.
         exclude_pattern: Regex — skip URLs matching this.
+        include_meta: If true, return JSON including page metadata and routing.
 
     Returns:
         Combined Markdown of all crawled pages with headers and separators.
@@ -178,7 +204,32 @@ async def pulldown_crawl(
         exclude_pattern=exclude_pattern,
         allow_private_addresses=_allow_private,
         cache=_cache,
+        routing_log_path=_routing_log_path,
     )
+
+    if include_meta:
+        return json.dumps(
+            {
+                "start_url": result.start_url,
+                "urls_discovered": result.urls_discovered,
+                "urls_fetched": result.urls_fetched,
+                "urls_skipped": result.urls_skipped,
+                "elapsed_ms": round(result.elapsed_ms, 1),
+                "pages": [
+                    {
+                        "url": page.url,
+                        "title": page.title,
+                        "content": page.content,
+                        "ok": page.ok,
+                        "error": page.error,
+                        "meta": page.meta,
+                    }
+                    for page in result.pages
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
 
     parts = [
         f"<!-- Crawl: {result.urls_fetched} pages fetched, "

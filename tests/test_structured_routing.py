@@ -32,9 +32,10 @@ class TestStructuredRouting:
         result = await fetch("https://matotezitanka.github.io/parameter-golf/", detail="structured")
 
         assert result.ok
-        assert result.meta["page_type"] == "dashboard"
-        assert result.meta["strategy_used"] == "structured"
-        assert result.meta["readerable"] is False
+        routing = result.meta["routing"]
+        assert routing["page_type"] == "table_heavy"
+        assert routing["strategy_used"] == "structured"
+        assert routing["source"] == "rules"
         assert "## Leaderboard Snapshot" in result.content
         assert "- Table columns: Status | Rank | PR | Author | BPB | Size" in result.content
         assert "- Showing first 8 of 12 rows" in result.content
@@ -48,9 +49,10 @@ class TestStructuredRouting:
         result = await fetch("https://matotezitanka.github.io/parameter-golf/", detail=Detail.readable)
 
         assert result.ok
-        assert result.meta["page_type"] == "dashboard"
-        assert result.meta["strategy_used"] == "structured"
-        assert result.meta["extraction_quality"] in {"medium", "high"}
+        routing = result.meta["routing"]
+        assert routing["page_type"] == "table_heavy"
+        assert routing["strategy_used"] == "structured"
+        assert routing["quality_grade"] in {"medium", "high"}
         assert "## Leaderboard Snapshot" in result.content
         assert len(result.content) < 5000
         assert "| ALIVE | 1 |" not in result.content
@@ -107,8 +109,9 @@ class TestStructuredRouting:
         result = await fetch("https://example.com/dashboard", detail=Detail.readable)
 
         assert result.ok
-        assert result.meta["page_type"] == "dashboard"
-        assert result.meta["strategy_used"] == "structured"
+        routing = result.meta["routing"]
+        assert routing["page_type"] == "table_heavy"
+        assert routing["strategy_used"] == "structured"
         assert "## Technique Map" in result.content
         assert "### TTT" in result.content
         assert "554 PRs · 261 people" in result.content
@@ -121,7 +124,7 @@ class TestStructuredRouting:
         result = await fetch("http://example.com/article", detail=Detail.readable)
 
         assert result.ok
-        assert result.meta["page_type"] == "article"
-        assert result.meta["strategy_used"] == "article"
-        assert result.meta["readerable"] is True
+        routing = result.meta["routing"]
+        assert routing["page_type"] == "article"
+        assert routing["strategy_used"] == "article"
         assert "first paragraph" in result.content

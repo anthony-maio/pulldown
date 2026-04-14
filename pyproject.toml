@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pulldown"
-version = "0.3.1"
+version = "0.4.0"
 description = "Fetch web pages as clean Markdown for LLM agents. HTTP-first, optional Chromium rendering, CLI + Python + MCP."
 readme = "README.md"
 license = "MIT"
@@ -46,6 +46,7 @@ dev = [
     "pulldown[all]",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "scikit-learn>=1.5",
 ]
 
 [project.urls]
@@ -65,6 +66,7 @@ packages = ["src/pulldown"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/pulldown/py.typed" = "pulldown/py.typed"
+"src/pulldown/routing_model.json" = "pulldown/routing_model.json"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

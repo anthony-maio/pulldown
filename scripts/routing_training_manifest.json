@@ -1,0 +1,54 @@
+[
+  {
+    "label": "article",
+    "url": "https://example.com/articles/fine-article",
+    "python_file": "tests/conftest.py",
+    "attribute": "SAMPLE_ARTICLE_HTML"
+  },
+  {
+    "label": "article",
+    "url": "https://example.com/articles/short-analysis",
+    "python_file": "tests/conftest.py",
+    "attribute": "SAMPLE_WEAK_ARTICLE_HTML"
+  },
+  {
+    "label": "docs",
+    "url": "https://example.com/docs/api/widgets",
+    "python_file": "tests/conftest.py",
+    "attribute": "SAMPLE_DOCS_HTML"
+  },
+  {
+    "label": "docs",
+    "url": "https://example.com/sdk/helpers",
+    "python_file": "tests/conftest.py",
+    "attribute": "SAMPLE_AMBIGUOUS_DOCS_HTML"
+  },
+  {
+    "label": "listing",
+    "url": "https://example.com/search?q=widgets",
+    "python_file": "tests/conftest.py",
+    "attribute": "SAMPLE_LISTING_HTML"
+  },
+  {
+    "label": "listing",
+    "url": "https://making-minds.ai/",
+    "html_path": "tests/fixtures/making_minds_landing.html"
+  },
+  {
+    "label": "table_heavy",
+    "url": "https://matotezitanka.github.io/parameter-golf/",
+    "html_path": "tests/fixtures/parameter_golf_dashboard.html"
+  },
+  {
+    "label": "app_shell",
+    "url": "https://example.com/workspace",
+    "python_file": "tests/conftest.py",
+    "attribute": "SAMPLE_APP_SHELL_HTML"
+  },
+  {
+    "label": "generic",
+    "url": "https://example.com/welcome",
+    "python_file": "tests/conftest.py",
+    "attribute": "SAMPLE_GENERIC_HTML"
+  }
+]

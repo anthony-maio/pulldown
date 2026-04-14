@@ -329,73 +329,6 @@ def _structured_root_score(stats: dict[str, int]) -> int:
     )
 
 
-def _classify_page(html: str) -> dict[str, Any]:
-    from lxml import etree
-
-    tree = etree.HTML(html)
-    if tree is None:
-        return {
-            "page_type": "generic",
-            "readerable": False,
-            "extraction_quality": "low",
-        }
-
-    body = _body_node(tree)
-    if body is None:
-        body = tree
-    readable_landmark = _select_readable_landmark(tree)
-    content_root = readable_landmark if readable_landmark is not None else body
-    content_stats = _page_stats(content_root)
-    document_stats = _page_stats(body)
-
-    dashboard_like = (
-        document_stats["rows"] >= 12
-        or (document_stats["tables"] >= 2 and document_stats["rows"] >= 8)
-        or document_stats["articles"] >= 8
-        or (document_stats["rows"] >= 6 and document_stats["headings"] >= 4)
-        or (
-            document_stats["tables"] >= 1
-            and document_stats["rows"] >= 8
-            and (document_stats["articles"] >= 2 or document_stats["headings"] >= 3)
-        )
-        or (
-            document_stats["headings"] >= 6
-            and document_stats["list_items"] >= 12
-            and content_stats["paragraphs"] <= 6
-        )
-    )
-    article_like = (
-        not dashboard_like
-        and content_stats["paragraphs"] >= 3
-        and content_stats["words"] >= 80
-        and content_stats["rows"] < 6
-        and content_stats["tables"] == 0
-        and content_stats["list_items"] < 20
-    )
-
-    if dashboard_like:
-        return {
-            "page_type": "dashboard",
-            "readerable": False,
-            "extraction_quality": (
-                "high"
-                if document_stats["rows"] >= 40 or document_stats["articles"] >= 12
-                else "medium"
-            ),
-        }
-    if article_like:
-        return {
-            "page_type": "article",
-            "readerable": True,
-            "extraction_quality": "high" if content_stats["words"] >= 350 else "medium",
-        }
-    return {
-        "page_type": "generic",
-        "readerable": content_stats["paragraphs"] >= 3 and content_stats["words"] >= 80,
-        "extraction_quality": "medium" if content_stats["words"] >= 120 else "low",
-    }
-
-
 def _select_readable_landmark(tree: Any) -> Any | None:
     candidates = tree.xpath("//main | //*[@role='main'] | //article")
     if candidates:
@@ -571,6 +504,29 @@ def _heading_prefix(level: int) -> str:
     return "#" * max(2, min(level, 4))
 
 
+def _render_primary_link_markdown(node: Any) -> str:
+    text = _squash_whitespace(" ".join(node.itertext()))
+    if not text:
+        return ""
+
+    link = next(iter(node.xpath(".//a[@href]")), None)
+    if link is None:
+        return text
+
+    link_text = _squash_whitespace(" ".join(link.itertext()))
+    href = (link.get("href") or "").strip()
+    if not link_text or not href:
+        return text
+
+    if text.startswith(link_text):
+        remainder = text[len(link_text) :].strip(" -:|")
+    else:
+        remainder = text.replace(link_text, "", 1).strip(" -:|")
+
+    rendered = f"[{link_text}]({href})"
+    return f"{rendered} {remainder}".strip()
+
+
 def _extract_structured(html: str, url: str) -> tuple[str, str | None, dict]:
     from lxml import etree
 
@@ -611,11 +567,31 @@ def _extract_structured(html: str, url: str) -> tuple[str, str | None, dict]:
         if tag in {"ul", "ol"}:
             items = node.xpath("./li")
             for item in items[:12]:
-                text = _squash_whitespace(" ".join(item.itertext()))
+                text = _render_primary_link_markdown(item)
                 if text:
                     lines.append(f"- {text}")
             if items:
                 lines.append("")
+            return
+
+        if tag == "dl":
+            seen_terms: set[str] = set()
+            for term_node in node.xpath(".//dt"):
+                current_term = _squash_whitespace(" ".join(term_node.itertext()))
+                if not current_term or current_term in seen_terms:
+                    continue
+                definition_node = next(iter(term_node.xpath("./following-sibling::dd[1]")), None)
+                definition = (
+                    _squash_whitespace(" ".join(definition_node.itertext()))
+                    if definition_node is not None
+                    else ""
+                )
+                if definition:
+                    lines.append(f"- {current_term} {definition}")
+                else:
+                    lines.append(f"- {current_term}")
+                seen_terms.add(current_term)
+            lines.append("")
             return
 
         if tag == "table":
@@ -824,12 +800,113 @@ def _title_from_lxml(html: str) -> str | None:
     return None
 
 
-EXTRACTORS = {
-    Detail.minimal: _extract_minimal,
-    Detail.readable: _extract_readable,
-    Detail.structured: _extract_structured,
-    Detail.full: _extract_full,
-}
+def _run_extractor_for_strategy(
+    html: str,
+    url: str,
+    strategy: str,
+) -> tuple[str, str | None, dict[str, Any]]:
+    if strategy == "minimal":
+        return _extract_minimal(html, url)
+    if strategy == "raw":
+        return html, _title_from_lxml(html), {}
+    if strategy == "article":
+        return _extract_readable(html, url)
+    if strategy == "structured":
+        return _extract_structured(html, url)
+    if strategy == "full":
+        return _extract_full(html, url)
+    raise ValueError(f"unknown extraction strategy {strategy!r}")
+
+
+def _extract_with_routing(
+    html: str,
+    url: str,
+    *,
+    detail: Detail,
+    render: bool,
+    status_code: int,
+    from_cache: bool = False,
+    error: str | None = None,
+    routing_log_path: str | None = None,
+) -> tuple[str, str | None, dict[str, Any], dict[str, Any]]:
+    from .routing import (
+        build_log_record,
+        fallback_strategy,
+        plan_routing,
+        public_routing_meta,
+        quality_grade,
+        write_routing_log,
+    )
+
+    plan = plan_routing(html, url, requested_detail=detail.value, render=render)
+    planned_strategy = plan.strategy
+
+    try:
+        actual_strategy, (content, title, meta) = planned_strategy, _run_extractor_for_strategy(
+            html, url, planned_strategy
+        )
+    except Exception as e:
+        logger.warning(
+            "extraction failed for %s with strategy %s: %s, falling back to full",
+            url,
+            planned_strategy,
+            e,
+        )
+        try:
+            actual_strategy, (content, title, meta) = "full", _run_extractor_for_strategy(
+                html, url, "full"
+            )
+        except Exception:
+            logger.debug("fallback extraction also failed", exc_info=True)
+            actual_strategy, content, title, meta = "full", html, _title_from_lxml(html), {}
+
+    content = content or ""
+    meta = dict(meta or {})
+    initial_quality = quality_grade(actual_strategy, content)
+    final_strategy = actual_strategy
+    final_source = "fallback" if actual_strategy != planned_strategy else plan.source
+
+    if detail == Detail.readable:
+        next_strategy = fallback_strategy(actual_strategy, initial_quality, plan.features)
+        if next_strategy is not None and next_strategy != actual_strategy:
+            try:
+                fallback_content, fallback_title, fallback_meta = _run_extractor_for_strategy(
+                    html, url, next_strategy
+                )
+                content = fallback_content or ""
+                title = fallback_title
+                meta = dict(fallback_meta or {})
+                final_strategy = next_strategy
+                final_source = "fallback"
+            except Exception:
+                logger.debug("quality fallback extraction failed", exc_info=True)
+
+    final_quality = quality_grade(final_strategy, content)
+    meta["routing"] = public_routing_meta(
+        plan,
+        final_source=final_source,
+        final_strategy=final_strategy,
+        final_quality=final_quality,
+    )
+
+    log_record = build_log_record(
+        url=url,
+        requested_detail=detail.value,
+        render=render,
+        status_code=status_code,
+        ok=error is None and 200 <= status_code < 400,
+        from_cache=from_cache,
+        error=error,
+        plan=plan,
+        initial_strategy=actual_strategy,
+        final_strategy=final_strategy,
+        initial_quality=initial_quality,
+        final_quality=final_quality,
+        route_changed=final_strategy != actual_strategy or actual_strategy != planned_strategy,
+        content_chars=len(content),
+    )
+    write_routing_log(routing_log_path, log_record)
+    return content, title, meta, {"_routing_log": log_record}
 
 
 # ---------------------------------------------------------------------------
@@ -927,6 +1004,7 @@ async def fetch(
     render_timeout_ms: int = 30000,
     # cache
     cache: Any | None = None,
+    routing_log_path: str | None = None,
 ) -> FetchResult:
     """
     Fetch a URL and extract content as Markdown.
@@ -970,6 +1048,8 @@ async def fetch(
         Total page load timeout in ms (render path).
     cache : PageCache, optional
         Cache instance for validator-based caching.
+    routing_log_path : str, optional
+        Append JSONL routing diagnostics for each fetched page.
 
     Returns
     -------
@@ -998,6 +1078,14 @@ async def fetch(
         cached = cache.get(url, detail.value)
         if cached is not None:
             logger.debug("cache hit: %s", url)
+            routing_log = cached.get("_routing_log")
+            if routing_log_path and routing_log:
+                from .routing import write_routing_log
+
+                cached_log = dict(routing_log)
+                cached_log["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                cached_log["from_cache"] = True
+                write_routing_log(routing_log_path, cached_log)
             return FetchResult(
                 url=url,
                 status_code=200,
@@ -1152,56 +1240,23 @@ async def fetch(
             error=str(e) or type(e).__name__,
         )
 
-    page_analysis = _classify_page(html)
-    extraction_detail = detail
-    if detail == Detail.readable and page_analysis["page_type"] == "dashboard":
-        extraction_detail = Detail.structured
-
-    # --- extract ---
-    if detail == Detail.raw:
-        elapsed = (time.perf_counter() - t0) * 1000
-        title = _title_from_lxml(html)
-        result = FetchResult(
-            url=url,
-            status_code=status_code,
-            content=html,
-            title=title,
-            meta={
-                "page_type": page_analysis["page_type"],
-                "readerable": page_analysis["readerable"],
-                "extraction_quality": page_analysis["extraction_quality"],
-                "strategy_used": "raw",
-            },
-            elapsed_ms=elapsed,
-        )
-    else:
-        extractor = EXTRACTORS[extraction_detail]
-        try:
-            content, title, meta = extractor(html, url)
-        except Exception as e:
-            logger.warning("extraction failed for %s: %s, falling back to full", url, e)
-            try:
-                content, title, meta = _extract_full(html, url)
-            except Exception:
-                logger.debug("fallback extraction also failed", exc_info=True)
-                content, title, meta = html, _title_from_lxml(html), {}
-
-        elapsed = (time.perf_counter() - t0) * 1000
-        meta = {
-            **meta,
-            "page_type": page_analysis["page_type"],
-            "readerable": page_analysis["readerable"],
-            "extraction_quality": page_analysis["extraction_quality"],
-            "strategy_used": "article" if extraction_detail == Detail.readable else extraction_detail.value,
-        }
-        result = FetchResult(
-            url=url,
-            status_code=status_code,
-            content=content or "",
-            title=title,
-            meta=meta,
-            elapsed_ms=elapsed,
-        )
+    content, title, meta, cache_extras = _extract_with_routing(
+        html,
+        url,
+        detail=detail,
+        render=render,
+        status_code=status_code,
+        routing_log_path=routing_log_path,
+    )
+    elapsed = (time.perf_counter() - t0) * 1000
+    result = FetchResult(
+        url=url,
+        status_code=status_code,
+        content=content,
+        title=title,
+        meta=meta,
+        elapsed_ms=elapsed,
+    )
 
     # --- populate cache ---
     if cache is not None and result.ok:
@@ -1212,6 +1267,7 @@ async def fetch(
                 "content": result.content,
                 "title": result.title,
                 "meta": result.meta,
+                **cache_extras,
             },
             etag=etag,
             last_modified=last_modified,
@@ -1241,6 +1297,7 @@ async def fetch_many(
     retries: int = 0,
     retry_delay_ms: int = 500,
     cache: Any | None = None,
+    routing_log_path: str | None = None,
     **render_kwargs: Any,
 ) -> list[FetchResult]:
     """
@@ -1276,6 +1333,7 @@ async def fetch_many(
                 retries=retries,
                 retry_delay_ms=retry_delay_ms,
                 cache=cache,
+                routing_log_path=routing_log_path,
                 **render_kwargs,
             )
 

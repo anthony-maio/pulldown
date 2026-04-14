@@ -24,13 +24,13 @@ import httpx
 from .core import (
     DEFAULT_HEADERS,
     DEFAULT_MAX_BYTES,
-    EXTRACTORS,
     Detail,
     FetchResult,
     UrlNotAllowedError,
+    _decode_response_content,
+    _extract_with_routing,
     _get_following_safe_redirects,
     _render_page,
-    _title_from_lxml,
     _validate_url,
 )
 
@@ -200,6 +200,7 @@ async def _fetch_and_extract(
     max_bytes: int,
     allow_private_addresses: bool,
     cache: Any | None,
+    routing_log_path: str | None,
 ) -> tuple[FetchResult, set[str]]:
     """
     Fetch once, extract locally, and return (result, links).
@@ -302,7 +303,7 @@ async def _fetch_and_extract(
                 except ValueError:
                     pass
 
-            body = resp.content
+            body, html = _decode_response_content(resp)
             if len(body) > max_bytes:
                 elapsed = (time.perf_counter() - t0) * 1000
                 return FetchResult(
@@ -313,7 +314,6 @@ async def _fetch_and_extract(
                     error=f"response body ({len(body)} bytes) exceeds max_bytes ({max_bytes})",
                 ), set()
 
-            html = resp.text
             etag = resp.headers.get("etag")
             last_modified = resp.headers.get("last-modified")
     except httpx.HTTPStatusError as e:
@@ -339,17 +339,14 @@ async def _fetch_and_extract(
     # Extract links from the raw HTML before running content extractor.
     links = _extract_links(html, url)
 
-    # Extract content.
-    if detail == Detail.raw:
-        title = _title_from_lxml(html)
-        content, meta = html, {}
-    else:
-        try:
-            content, title, meta = EXTRACTORS[detail](html, url)
-        except Exception:
-            logger.debug("extraction failed, falling back", exc_info=True)
-            content, title, meta = html, _title_from_lxml(html), {}
-        content = content or ""
+    content, title, meta, cache_extras = _extract_with_routing(
+        html,
+        url,
+        detail=detail,
+        render=False,
+        status_code=status_code,
+        routing_log_path=routing_log_path,
+    )
 
     elapsed = (time.perf_counter() - t0) * 1000
     result = FetchResult(
@@ -369,6 +366,7 @@ async def _fetch_and_extract(
                 "content": result.content,
                 "title": result.title,
                 "meta": result.meta,
+                **cache_extras,
             },
             etag=etag,
             last_modified=last_modified,
@@ -404,6 +402,7 @@ async def crawl(
     respect_robots: bool = True,
     per_domain_delay_ms: int = 0,
     user_agent: str | None = None,
+    routing_log_path: str | None = None,
     **render_kwargs: Any,
 ) -> CrawlResult:
     """
@@ -535,16 +534,14 @@ async def crawl(
                     ), set()
 
                 links = _extract_links(raw_html, url)
-
-                if detail == Detail.raw:
-                    content, title, meta = raw_html, _title_from_lxml(raw_html), {}
-                else:
-                    try:
-                        content, title, meta = EXTRACTORS[detail](raw_html, url)
-                        content = content or ""
-                    except Exception:
-                        logger.debug("render extraction failed, falling back", exc_info=True)
-                        content, title, meta = raw_html, _title_from_lxml(raw_html), {}
+                content, title, meta, cache_extras = _extract_with_routing(
+                    raw_html,
+                    url,
+                    detail=detail,
+                    render=True,
+                    status_code=status_code,
+                    routing_log_path=routing_log_path,
+                )
 
                 elapsed = (time.perf_counter() - t0_r) * 1000
                 r = FetchResult(
@@ -559,7 +556,7 @@ async def crawl(
                     cache.put(
                         url,
                         detail.value,
-                        {"content": r.content, "title": r.title, "meta": r.meta},
+                        {"content": r.content, "title": r.title, "meta": r.meta, **cache_extras},
                         links=list(links),
                     )
                 return r, links
@@ -575,6 +572,7 @@ async def crawl(
                 max_bytes=max_bytes,
                 allow_private_addresses=allow_private_addresses,
                 cache=cache,
+                routing_log_path=routing_log_path,
             )
 
     while queue and len(pages) < max_pages:

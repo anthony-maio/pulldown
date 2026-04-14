@@ -57,6 +57,7 @@ def main():
 @click.option("--cookie", multiple=True, help="Cookie as 'name=value'.")
 @click.option("--cache-dir", type=str, default=None, help="Enable caching with this directory.")
 @click.option("--cache-ttl", type=int, default=3600, help="Cache TTL in seconds.")
+@click.option("--routing-log", type=click.Path(), default=None, help="Append routing diagnostics JSONL.")
 @click.option("--no-verify", is_flag=True, help="Disable SSL verification (dangerous).")
 @click.option(
     "--max-bytes", type=int, default=DEFAULT_MAX_BYTES, help="Maximum response size in bytes."
@@ -79,6 +80,7 @@ def get(
     cookie,
     cache_dir,
     cache_ttl,
+    routing_log,
     no_verify,
     max_bytes,
     allow_private,
@@ -124,6 +126,7 @@ def get(
             render_wait_ms=wait,
             render_scroll_count=scroll,
             cache=cache,
+            routing_log_path=routing_log,
         )
     )
 
@@ -194,6 +197,7 @@ def get(
 @click.option("--exclude", type=str, default=None, help="Regex: skip matching URLs.")
 @click.option("--ignore-robots", is_flag=True, help="Do not consult robots.txt.")
 @click.option("--delay-ms", type=int, default=0, help="Per-domain delay in ms.")
+@click.option("--routing-log", type=click.Path(), default=None, help="Append routing diagnostics JSONL.")
 @click.option("--json-output", "-j", is_flag=True)
 @click.option(
     "--output", "-o", type=click.Path(), default=None, help="Write combined output to file."
@@ -220,6 +224,7 @@ def crawl(
     exclude,
     ignore_robots,
     delay_ms,
+    routing_log,
     json_output,
     output,
     output_dir,
@@ -246,6 +251,7 @@ def crawl(
             exclude_pattern=exclude,
             respect_robots=not ignore_robots,
             per_domain_delay_ms=delay_ms,
+            routing_log_path=routing_log,
         )
     )
 
@@ -306,7 +312,10 @@ def crawl(
 @main.command()
 @click.argument("urls", nargs=-1, required=True)
 @click.option(
-    "--detail", "-d", type=click.Choice(["minimal", "readable", "full", "raw"]), default="readable"
+    "--detail",
+    "-d",
+    type=click.Choice(["minimal", "readable", "structured", "full", "raw"]),
+    default="readable",
 )
 @click.option("--render", "-r", is_flag=True)
 @click.option("--runs", type=int, default=3, help="Number of benchmark runs.")
@@ -314,8 +323,9 @@ def crawl(
 @click.option("--timeout", "-t", type=float, default=30.0)
 @click.option("--no-verify", is_flag=True, help="Disable SSL verification.")
 @click.option("--allow-private", is_flag=True, help="Allow private addresses (dangerous).")
+@click.option("--routing-log", type=click.Path(), default=None, help="Append routing diagnostics JSONL.")
 @click.option("--json-output", "-j", is_flag=True)
-def bench(urls, detail, render, runs, concurrency, timeout, no_verify, allow_private, json_output):
+def bench(urls, detail, render, runs, concurrency, timeout, no_verify, allow_private, routing_log, json_output):
     """Benchmark fetch+extract throughput."""
     from .benchmark import benchmark as _benchmark
 
@@ -329,6 +339,7 @@ def bench(urls, detail, render, runs, concurrency, timeout, no_verify, allow_pri
             timeout=timeout,
             verify_ssl=not no_verify,
             allow_private_addresses=allow_private,
+            routing_log_path=routing_log,
         )
     )
 

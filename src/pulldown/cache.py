@@ -203,7 +203,7 @@ class PageCache:
                 path.unlink()
                 removed = 1
         else:
-            for d in ("minimal", "readable", "full", "raw"):
+            for d in ("minimal", "readable", "structured", "full", "raw"):
                 key = self._key(url, d)
                 path = self._path(key)
                 if path.exists():

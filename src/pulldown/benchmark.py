@@ -120,6 +120,7 @@ async def benchmark(
     timeout: float = 30.0,
     verify_ssl: bool = True,
     allow_private_addresses: bool = False,
+    routing_log_path: str | None = None,
     **kwargs: Any,
 ) -> BenchmarkResult:
     """
@@ -160,6 +161,7 @@ async def benchmark(
             timeout=timeout,
             verify_ssl=verify_ssl,
             allow_private_addresses=allow_private_addresses,
+            routing_log_path=routing_log_path,
             **kwargs,
         )
         result.results.append(run_results)
