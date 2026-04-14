@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Making Minds — Applied AI by Anthony D. Maio</title>
+    <meta name="description" content="Applied AI research lab and consultancy by Anthony D. Maio.">
+</head>
+<body>
+    <nav aria-label="Main navigation">
+        <a href="/">Making Minds</a>
+        <button type="button" aria-expanded="false">Toggle navigation</button>
+        <ul>
+            <li><a href="/#flagship">Flagship</a></li>
+            <li><a href="/research">Research</a></li>
+            <li><a href="/#writing">Writing</a></li>
+            <li><a href="/cv">CV</a></li>
+        </ul>
+        <div hidden id="nav-mobile">
+            <a href="/#flagship">Flagship</a>
+            <a href="/research">Research</a>
+            <a href="/#writing">Writing</a>
+            <a href="/cv">CV</a>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <section id="hero">
+            <h1>Anthony D. Maio</h1>
+            <p>Staff AI Platform Engineer | LLM Infrastructure &amp; Reliability | Agent Systems &amp; Safety</p>
+            <p>
+                20 years building production systems across fintech, security, and identity.
+                Now applying that same discipline to LLM infrastructure, agent orchestration,
+                and AI safety—treating oversight as a systems engineering problem, not a policy exercise.
+            </p>
+            <p>
+                <a href="/">Making Minds</a> is my AI research lab and consultancy—delivering
+                production tooling, open-source models, and peer-reviewed research to clients
+                ranging from early-stage startups to mid-sized industrial organizations.
+            </p>
+            <div class="hero-actions">
+                <a href="#flagship">Explore My Work</a>
+                <a href="/cv">CV</a>
+            </div>
+            <p>Agentic AI architectures · Multi-agent coordination · AI coherence &amp; memory · Epistemic stress detection</p>
+        </section>
+
+        <section id="flagship">
+            <h2>Flagship</h2>
+            <p>Production tools and models—shipped, installable, used.</p>
+
+            <article class="card">
+                <h3><a href="https://pulldown.making-minds.ai">pulldown</a></h3>
+                <p>HTTP-first web content for LLM pipelines</p>
+                <p>
+                    Fetches URLs and converts them to clean, level-controlled Markdown.
+                    Four detail levels, batch API, bounded crawl, validator caching, and SSRF guard.
+                </p>
+                <div class="code-box">pip install "pulldown[mcp]"</div>
+                <div class="badges">
+                    <span>MCP ready</span>
+                    <span>4 detail levels</span>
+                    <span>SSRF guard</span>
+                </div>
+                <div class="actions">
+                    <a href="https://pulldown.making-minds.ai">Site</a>
+                    <a href="https://github.com/anthony-maio/pulldown">GitHub</a>
+                </div>
+            </article>
+
+            <article class="card">
+                <h3><a href="https://cartograph.making-minds.ai">Cartograph</a></h3>
+                <p>Map the repo before you burn context</p>
+                <p>
+                    CLI-first repo analysis. Rank files, trace dependency hubs, pull task-scoped context,
+                    and hand structured artifacts to Claude Code, OpenClaw, or any agent.
+                </p>
+                <div class="badges">
+                    <span>CLI first</span>
+                    <span>Claude + OpenClaw</span>
+                </div>
+            </article>
+        </section>
+
+        <section id="writing">
+            <h2>Writing</h2>
+            <p>Long-form analysis, technical walkthroughs, and opinion across Substack, Medium, and Hugging Face.</p>
+
+            <a class="post-card" href="https://anthonymaio.substack.com/p/how-to-actually-code-with-agents">
+                <div class="aspect-video">
+                    <img src="/images/writing/code-with-agents.jpg" alt="How to Actually Code With Agents">
+                </div>
+                <div class="card-copy">
+                    <h3>How to Actually Code With Agents</h3>
+                    <p>The velocity trap and the practices that survive it</p>
+                </div>
+            </a>
+
+            <a class="post-card" href="https://anthonymaio.substack.com/p/your-agent-has-amnesia">
+                <div class="aspect-video">
+                    <img src="/images/writing/agent-amnesia.jpg" alt="Your Agent Has Amnesia">
+                </div>
+                <div class="card-copy">
+                    <h3>Your Agent Has Amnesia</h3>
+                    <p>Announcing mnemos: biomimetic memory for agents</p>
+                </div>
+            </a>
+
+            <div class="writing-sources">
+                <div class="source-card">
+                    <h3>
+                        Medium
+                        <a href="https://medium.com/digital-children">→ all posts</a>
+                    </h3>
+                    <ul>
+                        <li>
+                            <a href="https://www.linkedin.com/pulse/agentic-shift-5-counter-intuitive-truths-building-ai-systems-maio-23eoc">The Agentic Coding Shift</a>
+                            <span>5 counter-intuitive truths about building AI systems</span>
+                        </li>
+                        <li>
+                            <a href="https://medium.com/digital-children/becoming-an-ai-first-organization-the-rekki-case-study-15122640e6ef">The REKKI Case Study</a>
+                            <span>Becoming an AI-first organization</span>
+                        </li>
+                        <li>
+                            <a href="https://medium.com/digital-children/llama-4-running-locally-in-under-an-hour-aa0202a2dfb5">Llama 4 Running Locally</a>
+                            <span>Local deployment in under an hour</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="source-card">
+                    <h3>
+                        Hugging Face
+                        <a href="https://huggingface.co/anthonym21">→ profile</a>
+                    </h3>
+                    <ul>
+                        <li>
+                            <a href="https://huggingface.co/blog/anthonym21/slipstream-for-agent-communication">Slipstream for Agent Communication</a>
+                            <span>Technical deep-dive on semantic quantization</span>
+                        </li>
+                        <li>
+                            <a href="https://huggingface.co/blog/anthonym21/model-organism-for-supply-chain-co-option">Model Organism for Supply-Chain Co-option</a>
+                            <span>Forensic LotL case study in agentic runtimes</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="source-card">
+                    <h3>
+                        The Checkpoint
+                        <span>Newsletter</span>
+                    </h3>
+                    <p>Weekly roundup of developments that matter if you build, deploy, or think critically about AI systems.</p>
+                    <ul>
+                        <li>
+                            <a href="https://anthonymaio.substack.com/p/the-checkpoint-mar-30-2026">March 30, 2026</a>
+                            <span> — ARC-AGI-3, Google TurboQuant, OpenAI kills Sora</span>
+                        </li>
+                        <li>
+                            <a href="https://anthonymaio.substack.com/p/the-checkpoint-march-21-2026">March 21, 2026</a>
+                            <span> — OpenAI acquires Promptfoo, Knuth uses Claude, Mistral Small 4</span>
+                        </li>
+                        <li>
+                            <a href="https://anthonymaio.substack.com/p/the-checkpoint-march-20-2026">March 20, 2026</a>
+                            <span> — Mistral Small 4, GPT-5.4 Mini/Nano, and the week in releases</span>
+                        </li>
+                    </ul>
+                    <a href="https://anthonymaio.substack.com">Subscribe →</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="glossary">
+            <h2>Glossary</h2>
+            <div class="glossary-grid">
+                <div class="glossary-group">
+                    <h3>Safety &amp; Oversight</h3>
+                    <dl>
+                        <div><dt>HDCS</dt><dd> — Heterogeneous Divergence-Convergence Swarm. Ensemble of diverse AI models that cross-check each other.</dd></div>
+                        <div><dt>CMED</dt><dd> — Cross-Model Epistemic Divergence. Test suite for revealing AI verification blind spots.</dd></div>
+                    </dl>
+                </div>
+
+                <div class="glossary-group">
+                    <h3>Architectures</h3>
+                    <dl>
+                        <div><dt>MRA</dt><dd> — Manifold Resonance Architecture. Detects epistemic stress before generating answers.</dd></div>
+                        <div><dt>C2</dt><dd> — Continuity Core. Layered memory giving stateless AI persistent context.</dd></div>
+                    </dl>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p><strong>Seeking</strong> Staff+, EM, Director, Researcher, or Technical Fellow roles in AI safety and agent reliability.</p>
+        <a href="https://orcid.org/0009-0003-4541-8515">ORCID</a>
+        <a href="https://scholar.google.com/citations?user=N_jxNc8AAAAJ&amp;hl=en">Google Scholar</a>
+        <a href="https://www.researchgate.net/profile/Anthony-Maio">ResearchGate</a>
+        <a href="https://www.linkedin.com/in/anthony-maio">LinkedIn</a>
+    </footer>
+</body>
+</html>

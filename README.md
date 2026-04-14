@@ -5,6 +5,7 @@ Pull down web pages as clean Markdown for LLM agents.
 - HTTP-first with browser-like defaults
 - Optional Chromium rendering for JS-heavy pages
 - Four detail levels: `minimal`, `readable`, `full`, `raw`
+- Core installs decode Brotli-compressed pages correctly
 - Concurrent batch fetching with `fetch_many()`
 - Bounded site crawling with `robots.txt` support and per-domain politeness
 - Validator-based caching (ETag / Last-Modified) with atomic writes
@@ -20,6 +21,9 @@ pip install 'pulldown[render]'       # + Playwright (Chromium rendering)
 pip install 'pulldown[mcp]'          # + MCP server
 pip install 'pulldown[all]'          # everything
 ```
+
+Core installs include Brotli support, so `br`-compressed HTML is decoded before
+`minimal`, `readable`, `full`, or `raw` processing.
 
 For rendered pages, also run `playwright install chromium` once.
 
@@ -103,7 +107,7 @@ Environment variables:
 | Level | Output | Best for |
 |---|---|---|
 | `minimal` | Title + plain text | Lowest-token summarisation |
-| `readable` | Article Markdown with links | RAG, reading (default) |
+| `readable` | Clean Markdown with links | RAG, reading, structured landing pages (default) |
 | `full` | Full-page Markdown incl. chrome | Pages without clear article body |
 | `raw` | Untouched HTML | Custom parsing downstream |
 

@@ -2,6 +2,23 @@
 
 All notable changes to pulldown will be documented here.
 
+## [0.3.0] - 2026-04-13
+
+### Added
+- Regression coverage for structured landing-page extraction using a stable
+  `making-minds.ai` fixture.
+- Regression coverage for Brotli-compressed HTTP responses to ensure all
+  detail levels operate on decoded HTML.
+
+### Changed
+- `readable` now falls back to a cleaned `<main>`/content-landmark Markdown
+  conversion when article extraction is structurally weak.
+- Markdown normalization now repairs split headings, definition-list pairs,
+  collapsed list formatting, and empty link stubs commonly produced on
+  portfolio and landing pages.
+- Core installs now include Brotli support so `br`-compressed pages decode
+  correctly before `minimal`, `readable`, `full`, or `raw` processing.
+
 ## [0.2.0] - 2026-04-05
 
 ### Added

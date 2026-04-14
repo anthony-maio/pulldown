@@ -14,14 +14,21 @@ import asyncio
 import enum
 import ipaddress
 import logging
+import re
 import socket
 import time
 from collections.abc import Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
+
+try:
+    import brotli
+except ImportError:  # pragma: no cover - core installs should provide this
+    brotli = None
 
 logger = logging.getLogger("pulldown")
 
@@ -189,6 +196,24 @@ async def _get_following_safe_redirects(
 # ---------------------------------------------------------------------------
 
 _METADATA_KEYS = ("author", "date", "sitename", "description", "categories", "tags", "language")
+_HEADING_LINE_RE = re.compile(r"^#{1,6}\s*$")
+_EMPTY_LINK_LINE_RE = re.compile(r"^\[\s*\]\([^)]+\)$")
+_BLOCK_LINK_HEADINGS = " or ".join(f"self::h{i}" for i in range(1, 7))
+_BOILERPLATE_TOKENS = frozenset(
+    {
+        "nav",
+        "navbar",
+        "footer",
+        "menu",
+        "mobile",
+        "sidebar",
+        "drawer",
+        "breadcrumb",
+        "social",
+        "share",
+        "sharing",
+    }
+)
 
 
 def _metadata_from_document(doc: Any) -> dict[str, Any]:
@@ -234,6 +259,243 @@ def _extract_minimal(html: str, url: str) -> tuple[str, str | None, dict]:
     return (text or ""), title, {}
 
 
+def _squash_whitespace(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _markdown_heading_count(markdown: str) -> int:
+    return sum(1 for line in markdown.splitlines() if line.lstrip().startswith("#"))
+
+
+def _markdown_list_item_count(markdown: str) -> int:
+    return sum(1 for line in markdown.splitlines() if line.lstrip().startswith("- "))
+
+
+def _markdown_image_count(markdown: str) -> int:
+    return sum(1 for line in markdown.splitlines() if line.lstrip().startswith("!["))
+
+
+def _select_readable_landmark(tree: Any) -> Any | None:
+    candidates = tree.xpath("//main | //*[@role='main'] | //article")
+    if candidates:
+        return max(
+            candidates,
+            key=lambda node: (
+                len(node.xpath(".//section")) * 20
+                + len(node.xpath(".//*[self::h2 or self::h3 or self::h4]")) * 10
+                + len(node.xpath(".//ul/li | .//ol/li")) * 3
+                + len(node.xpath(".//dt")) * 4
+                + len(_squash_whitespace(" ".join(node.itertext()))),
+            ),
+        )
+    bodies = tree.xpath("//body")
+    return bodies[0] if bodies else None
+
+
+def _node_tokens(node: Any) -> set[str]:
+    values: list[str] = []
+    for attr in ("class", "id", "role", "aria-label"):
+        value = node.get(attr)
+        if value:
+            values.extend(re.split(r"[^a-z0-9]+", value.lower()))
+    return {value for value in values if value}
+
+
+def _remove_node(node: Any) -> None:
+    parent = node.getparent()
+    if parent is not None:
+        parent.remove(node)
+
+
+def _unwrap_or_rewrite_block_links(root: Any, base_url: str) -> None:
+    from lxml import etree
+
+    for node in list(root.xpath(".//a[*]")):
+        href = (node.get("href") or "").strip()
+        if href:
+            node.set("href", urljoin(base_url, href))
+
+        for image in list(node.xpath(".//img | .//picture | .//*[local-name()='svg']")):
+            _remove_node(image)
+
+        heading = next(iter(node.xpath(f".//*[{_BLOCK_LINK_HEADINGS}]")), None)
+        if heading is not None and not heading.xpath("./a"):
+            heading_text = _squash_whitespace(" ".join(heading.itertext()))
+            if heading_text:
+                for child in list(heading):
+                    heading.remove(child)
+                heading.text = None
+                link = etree.Element("a", href=href or base_url)
+                link.text = heading_text
+                heading.append(link)
+
+        node.tag = "div"
+        for attr in ("href", "target", "rel"):
+            node.attrib.pop(attr, None)
+
+
+def _is_short_link_cluster(node: Any) -> bool:
+    if node.tag not in {"div", "p"}:
+        return False
+    children = [child for child in node if isinstance(child.tag, str)]
+    if not children:
+        return False
+    child_tags = {child.tag for child in children}
+    if not child_tags <= {"a", "button", "span"}:
+        return False
+    text = _squash_whitespace(" ".join(node.itertext()))
+    return len(text.split()) <= 12
+
+
+def _clean_landmark(root: Any, base_url: str) -> None:
+    for node in list(
+        root.xpath(
+            ".//*[self::nav or self::footer or self::aside or self::script or self::style or "
+            "self::template or self::noscript or self::button or local-name()='svg']"
+        )
+    ):
+        _remove_node(node)
+
+    for node in list(root.xpath(".//*[@hidden or @aria-hidden='true']")):
+        _remove_node(node)
+
+    for node in list(root.xpath(".//img | .//picture")):
+        _remove_node(node)
+
+    for node in list(root.xpath(".//*[@href]")):
+        href = node.get("href")
+        if href:
+            node.set("href", urljoin(base_url, href))
+
+    _unwrap_or_rewrite_block_links(root, base_url)
+
+    for node in list(root.xpath(".//*")):
+        if not isinstance(node.tag, str):
+            continue
+        if _node_tokens(node) & _BOILERPLATE_TOKENS:
+            _remove_node(node)
+            continue
+        if _is_short_link_cluster(node):
+            _remove_node(node)
+
+
+def _extract_cleaned_landmark_markdown(html: str, url: str) -> str:
+    from html_to_markdown import convert
+    from lxml import etree
+
+    tree = etree.HTML(html)
+    if tree is None:
+        return ""
+
+    landmark = _select_readable_landmark(tree)
+    if landmark is None:
+        return ""
+
+    cleaned = deepcopy(landmark)
+    _clean_landmark(cleaned, url)
+    cleaned_html = etree.tostring(cleaned, encoding="unicode", method="html")
+    if not cleaned_html.strip():
+        return ""
+
+    result = convert(cleaned_html)
+    if isinstance(result, dict):
+        return str(result.get("content", "") or "")
+    return str(result)
+
+
+def _should_use_landmark_fallback(primary_markdown: str, fallback_markdown: str) -> bool:
+    primary_text = _squash_whitespace(primary_markdown)
+    fallback_text = _squash_whitespace(fallback_markdown)
+
+    if not fallback_text:
+        return False
+    if not primary_text:
+        return True
+    if len(primary_text) < 200 and len(fallback_text) > len(primary_text) * 2:
+        return True
+
+    primary_headings = _markdown_heading_count(primary_markdown)
+    fallback_headings = _markdown_heading_count(fallback_markdown)
+    primary_lists = _markdown_list_item_count(primary_markdown)
+    fallback_lists = _markdown_list_item_count(fallback_markdown)
+    primary_images = _markdown_image_count(primary_markdown)
+    fallback_images = _markdown_image_count(fallback_markdown)
+
+    if (
+        fallback_headings >= max(primary_headings, 3)
+        and fallback_lists >= max(primary_lists, 2)
+        and primary_images > fallback_images + 2
+    ):
+        return True
+
+    return (
+        fallback_headings >= 3
+        and fallback_lists >= 2
+        and primary_headings < 2
+        and len(fallback_text) >= int(len(primary_text) * 0.75)
+    )
+
+
+def _normalize_readable_markdown(markdown: str) -> str:
+    filtered_lines: list[str] = []
+    raw_lines = markdown.splitlines()
+    i = 0
+    while i < len(raw_lines):
+        line = raw_lines[i].rstrip()
+        stripped = line.strip()
+
+        if _EMPTY_LINK_LINE_RE.match(stripped):
+            i += 1
+            continue
+        if stripped.startswith("![") and "data:image/" in stripped:
+            i += 1
+            continue
+        if _HEADING_LINE_RE.match(stripped) and i + 1 < len(raw_lines):
+            next_line = raw_lines[i + 1].strip()
+            if next_line and not next_line.startswith(("#", "-", "*", ">", "[")):
+                filtered_lines.append(f"{stripped} {next_line}")
+                i += 2
+                continue
+
+        filtered_lines.append(stripped if stripped else "")
+        i += 1
+
+    combined_lines: list[str] = []
+    i = 0
+    while i < len(filtered_lines):
+        line = filtered_lines[i]
+        stripped = line.strip()
+        next_line = filtered_lines[i + 1].strip() if i + 1 < len(filtered_lines) else ""
+        if stripped.startswith("- ") and next_line.startswith("- — "):
+            combined_lines.append(f"{stripped} {next_line[2:].strip()}")
+            i += 2
+            continue
+        if stripped and not stripped.startswith(("#", "-", "*", ">", "[")) and next_line.startswith("— "):
+            combined_lines.append(f"- {stripped} {next_line}")
+            i += 2
+            continue
+
+        if stripped.startswith("### ") and " [→ " in stripped:
+            stripped = stripped.split(" [→ ", 1)[0]
+            combined_lines.append(stripped)
+            i += 1
+            continue
+
+        if stripped.startswith("- ") and " - [" in stripped:
+            first, *rest = stripped.split(" - [")
+            combined_lines.append(first)
+            combined_lines.extend(f"- [{item}" for item in rest)
+            i += 1
+            continue
+
+        combined_lines.append(line)
+        i += 1
+
+    normalized = "\n".join(combined_lines)
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+    return normalized.strip()
+
+
 def _extract_readable(html: str, url: str) -> tuple[str, str | None, dict]:
     """Article body as Markdown with links."""
     import trafilatura
@@ -256,7 +518,24 @@ def _extract_readable(html: str, url: str) -> tuple[str, str | None, dict]:
             title = _title_from_document(doc)
     except Exception as e:
         logger.debug("metadata extraction failed for %s: %s", url, e)
-    return (md or ""), title, meta_info
+
+    fallback_md = _extract_cleaned_landmark_markdown(html, url)
+    chosen = fallback_md if _should_use_landmark_fallback(md or "", fallback_md) else (md or "")
+    return _normalize_readable_markdown(chosen), title, meta_info
+
+
+def _decode_response_content(resp: httpx.Response) -> tuple[bytes, str]:
+    body = resp.content
+    content_encoding = resp.headers.get("content-encoding", "").lower()
+
+    if "br" in content_encoding and brotli is not None:
+        try:
+            body = brotli.decompress(body)
+        except brotli.error:
+            pass
+
+    encoding = resp.charset_encoding or resp.encoding or "utf-8"
+    return body, body.decode(encoding, errors="replace")
 
 
 def _extract_full(html: str, url: str) -> tuple[str, str | None, dict]:
@@ -590,8 +869,7 @@ async def fetch(
                     except ValueError:
                         pass
 
-                # Decoded-body size check.
-                body = resp.content
+                body, html = _decode_response_content(resp)
                 if len(body) > max_bytes:
                     elapsed = (time.perf_counter() - t0) * 1000
                     return FetchResult(
@@ -601,7 +879,6 @@ async def fetch(
                         elapsed_ms=elapsed,
                         error=f"response body ({len(body)} bytes) exceeds max_bytes ({max_bytes})",
                     )
-                html = resp.text
                 etag = resp.headers.get("etag")
                 last_modified = resp.headers.get("last-modified")
 
