@@ -33,8 +33,8 @@ def test_repo_skill_covers_install_and_sandbox_usage():
     assert "pulldown[mcp]" in skill
     assert "--no-verify" in skill
     assert "Default to `readable`" in skill
-    version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
-    assert version in skill
+    assert "Brotli" in skill
+    assert "lxml_html_clean" in skill
     assert "detail=`structured`" in skill
     assert 'result.meta["routing"]' in skill
     assert "--routing-log" in skill

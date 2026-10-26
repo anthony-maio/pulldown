@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pulldown"
-version = "0.4.1"
+version = "0.4.2"
 description = "Fetch web pages as clean Markdown for LLM agents. HTTP-first, optional Chromium rendering, CLI + Python + MCP."
 readme = "README.md"
 license = "MIT"

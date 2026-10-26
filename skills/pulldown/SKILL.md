@@ -5,7 +5,7 @@ description: Fetch web pages as clean Markdown for downstream LLM processing. Us
 
 # Using pulldown
 
-`pulldown` turns web pages into clean Markdown for LLM consumption. It has an opinionated pipeline: HTTP-first, optional Chromium rendering, five detail levels, validator-based caching, and an SSRF-safe default.
+`pulldown` turns web pages into clean Markdown for LLM consumption. It provides HTTP fetching, optional Chromium rendering, five detail levels, validator-based HTTP caching, and private-address checks.
 
 ## Install
 
@@ -17,9 +17,15 @@ pip install 'pulldown[render]'
 pip install 'pulldown[mcp]'
 ```
 
-`pulldown 0.4.0` and newer include direct Brotli and `lxml_html_clean` runtime
-dependencies plus page-type aware routing, so old `0.2.0` compressed-output
-issues and pre-routing extraction failures should not require manual repair.
+Current releases include direct Brotli and `lxml_html_clean` runtime dependencies
+plus routing based on page type. Install the declared dependencies before
+diagnosing compressed output or extraction failures.
+
+Rendering bypasses the HTTP cache and requires the final canonical URL. It
+rejects redirects and blocks workers, service workers, and WebSockets. Ordinary
+HTTP fetching supports guarded redirects. Address checks do not provide network
+or process isolation; rendered size limits apply to the final DOM, not total
+browser memory or network traffic.
 
 If an agent is running inside a sandbox with broken or self-signed TLS trust,
 the CLI escape hatch is:
