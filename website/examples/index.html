@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compare real extraction results | pulldown</title>
+  <meta name="description" content="Compare the same source page across all five pulldown modes, then see what Chromium adds to a JavaScript page.">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="examples.css">
+</head>
+<body>
+  <nav aria-label="Main navigation"><a href="../index.html">pulldown</a><a href="https://making-minds.ai/products/pulldown/">Product guide</a><a href="https://github.com/anthony-maio/pulldown">Source</a></nav>
+  <main>
+    <p class="eyebrow">A complete first run / Version 0.4.0</p>
+    <h1>See what reaches your pipeline.</h1>
+    <p class="intro">Compare the source with the text pulldown actually extracted. Start with a stable article, choose a detail level, then try a page whose content only appears after JavaScript runs.</p>
+    <h2>Install and fetch the example</h2>
+    <p>Use Python 3.10 or newer in a fresh virtual environment. Core extraction works without Chromium.</p>
+    <pre><code>python -m pip install "pulldown==0.4.0"
+pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail structured --json-output --meta</code></pre>
+    <p>Look for <code>Release field notes</code>, its section headings, and the service table summary. The JSON metadata explains which extraction strategy ran.</p>
+    <h2>One page, five outputs</h2>
+    <p><a href="field-notes.html" target="_blank" rel="noopener noreferrer">Open the original article and table</a>. Its service names and statuses are fictional fixture data. The outputs below were captured from the installed wheel, with the same source files served locally for a repeatable check.</p>
+    <div class="controls"><label for="mode">Detail level</label><select id="mode"><option value="minimal">minimal</option><option value="readable">readable</option><option value="structured" selected>structured</option><option value="full">full</option><option value="raw">raw</option></select><button id="copy-command" type="button">Copy command</button><a id="download-result" href="outputs/field-notes-structured.json">Open result JSON</a></div>
+    <p id="mode-note" class="note"></p>
+    <pre id="mode-command"><code></code></pre>
+    <pre class="output" id="mode-output" aria-label="Captured extraction output" tabindex="0">Loading the captured result...</pre>
+    <p id="output-meta" class="eyebrow"></p><p id="copy-status" role="status" aria-live="polite"></p>
+    <h2>When the initial HTML is not enough</h2>
+    <p><a href="live-board.html" target="_blank" rel="noopener noreferrer">Open the JavaScript release board</a>. Its three cards are inserted after the initial response. First fetch it over HTTP, then repeat with Chromium.</p>
+    <pre><code>python -m pip install "pulldown[render]==0.4.0"
+python -m playwright install chromium
+pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable
+pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable --render --wait 100</code></pre>
+    <p>The HTTP result lacks the cards. The rendered result contains <code>RENDERED-BOARD-READY</code> and the Documentation, Search, and Export cards. Rendering bypasses the page cache so an earlier HTTP result cannot hide the new content.</p>
+    <div class="cards">
+      <section class="card"><h3>HTTP response</h3><a href="outputs/live-board-http.json">Open result JSON</a><pre class="output" id="http-output" tabindex="0">Loading...</pre></section>
+      <section class="card"><h3>After Chromium</h3><a href="outputs/live-board-rendered.json">Open result JSON</a><pre class="output" id="rendered-output" tabindex="0">Loading...</pre></section>
+    </div>
+    <h2>Choose what the next step needs</h2>
+    <div class="cards"><div class="card"><h3>Reading and retrieval</h3><p>Start with <code>readable</code>. Compare headings, source links, and important facts before adding the text to an index.</p></div><div class="card"><h3>Listings and tables</h3><p>Try <code>structured</code> for hierarchy and table summaries. Use <code>full</code> or <code>raw</code> when every row or original element matters.</p></div><div class="card"><h3>Diagnosing missing content</h3><p>Inspect <code>raw</code> first. Use rendering when the initial response is only a shell, and allow for the cost of starting a browser.</p></div></div>
+    <h2>What this example establishes</h2>
+    <p>All five modes work from the installed package, and Chromium retrieves content missing from the initial HTML. This is a repeatable fixture check. It does not establish extraction quality on every site, access to login-only content, or a token-saving percentage.</p>
+    <p>Private addresses are blocked by default. The local verification server requires an explicit override; these public example URLs do not. Browser rendering checks HTTP requests and blocks redirects, workers, and WebSockets. Use the final canonical URL when rendering. Ordinary HTTP fetching supports guarded redirects. These checks do not replace network isolation when processing untrusted sites.</p>
+    <p><a href="outputs/manifest.json">Read the capture manifest</a> | <a href="https://github.com/anthony-maio/pulldown/blob/main/scripts/smoke-installed.py">Inspect the installed-package check</a></p>
+  </main>
+  <footer>Captured output is shown as text. The original source pages stay available for comparison.</footer>
+  <script>
+    const mode = document.getElementById('mode');
+    const notes = {
+      minimal: 'Plain text for a small representation. Links and table structure are not preserved.',
+      readable: 'The router chooses an extraction strategy for this page. Inspect the metadata along with the content.',
+      structured: 'Preserves headings and summarizes tables. A summary can omit cells; do not use it as a lossless table export.',
+      full: 'Converts the complete page, including navigation and footer content.',
+      raw: 'The original HTML response, shown as text. Use it to inspect what the server returned.'
+    };
+    let selectedCommand = '';
+    async function showMode() {
+      const chosen = mode.value;
+      selectedCommand = 'pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail ' + chosen + ' --json-output --meta';
+      document.querySelector('#mode-command code').textContent = selectedCommand;
+      document.getElementById('mode-note').textContent = notes[chosen];
+      document.getElementById('download-result').href = 'outputs/field-notes-' + chosen + '.json';
+      document.getElementById('output-meta').textContent = '';
+      try {
+        const response = await fetch('outputs/field-notes-' + chosen + '.json');
+        if (!response.ok) throw new Error('Result unavailable');
+        const result = await response.json();
+        if (mode.value !== chosen) return;
+        document.getElementById('mode-output').textContent = result.content;
+        const strategy = result.meta && result.meta.routing && result.meta.routing.strategy_used;
+        document.getElementById('output-meta').textContent = result.content.length + ' characters' + (strategy ? ' / Strategy: ' + strategy : '') + ' / Captured from pulldown 0.4.0';
+      } catch (error) {
+        if (mode.value === chosen) document.getElementById('mode-output').textContent = 'The capture could not be loaded. Open the result JSON or run the command above.';
+      }
+    }
+    async function showBoard(name, target) {
+      try {
+        const response = await fetch('outputs/live-board-' + name + '.json');
+        if (!response.ok) throw new Error('Result unavailable');
+        document.getElementById(target).textContent = (await response.json()).content;
+      } catch (error) { document.getElementById(target).textContent = 'Capture unavailable. Run the command above to compare this source.'; }
+    }
+    mode.addEventListener('change', showMode);
+    document.getElementById('copy-command').addEventListener('click', async function () {
+      try { await navigator.clipboard.writeText(selectedCommand); document.getElementById('copy-status').textContent = 'Command copied.'; }
+      catch (error) { document.getElementById('copy-status').textContent = 'Select and copy the command above.'; }
+    });
+    showMode(); showBoard('http', 'http-output'); showBoard('rendered', 'rendered-output');
+  </script>
+</body>
+</html>

@@ -500,6 +500,7 @@ async def crawl(
                         headers=headers,
                         cookies=cookies,
                         proxy=proxy,
+                        allow_private_addresses=allow_private_addresses,
                         **render_kwargs,
                     )
                 except UrlNotAllowedError as e:
@@ -552,13 +553,7 @@ async def crawl(
                     meta=meta,
                     elapsed_ms=elapsed,
                 )
-                if cache is not None and r.ok:
-                    cache.put(
-                        url,
-                        detail.value,
-                        {"content": r.content, "title": r.title, "meta": r.meta, **cache_extras},
-                        links=list(links),
-                    )
+                # Browser output must not replace the HTTP-only cache entry.
                 return r, links
 
             return await _fetch_and_extract(

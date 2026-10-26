@@ -1,0 +1,23 @@
+{
+  "url": "http://127.0.0.1:60198/live-board.html",
+  "status_code": 200,
+  "title": "Live release board",
+  "content": "---\nmeta-description: A deterministic JavaScript-rendered page for testing pulldown's browser mode.\nmeta-viewport: width=device-width, initial-scale=1.0\ntitle: Live release board\n---\n\n[Example gallery](index.html) [Release field notes](field-notes.html)\n\nExtraction fixture / JavaScript required\n\n# Live release board\n\nThe release cards are loading. JavaScript must run before they appear.\n",
+  "elapsed_ms": 329.7,
+  "from_cache": false,
+  "ok": true,
+  "meta": {
+    "title": "Live release board",
+    "description": "A deterministic JavaScript-rendered page for testing pulldown's browser mode.",
+    "language": "en",
+    "routing": {
+      "page_type": "generic",
+      "source": "hybrid",
+      "confidence": 0.270513,
+      "abstained": true,
+      "strategy_used": "full",
+      "quality_grade": "medium",
+      "render_recommended": false
+    }
+  }
+}

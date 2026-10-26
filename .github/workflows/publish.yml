@@ -18,11 +18,35 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install build deps
-        run: pip install hatchling build
+      - name: Install test and build dependencies
+        run: python -m pip install ".[dev]" build twine
+
+      - name: Check release versions
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import tomllib
+          import pulldown
+          version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
+          assert pulldown.__version__ == version, 'Package metadata and runtime versions differ'
+          assert os.environ['RELEASE_TAG'] == f'v{version}', 'Release tag must match the package version'
+          print(f'Validated release v{version}')
+          PY
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
 
       - name: Build sdist and wheel
         run: python -m build
+
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Test the installed wheel with Chromium
+        run: python scripts/smoke-installed.py --wheel dist/*.whl --install-browser-deps
 
       - uses: actions/upload-artifact@v4
         with:

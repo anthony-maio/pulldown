@@ -2,9 +2,13 @@
 
 All notable changes to pulldown will be documented here.
 
-## [0.4.0] - 2026-04-14
+## [0.4.0] - 2026-10-26
 
 ### Added
+- A public extraction gallery with captured outputs for all five detail levels
+  and a JavaScript page compared before and after Chromium rendering.
+- Installed-wheel checks for the CLI, MCP import, routing model, private-address
+  guard, and real browser rendering before publication.
 - Hybrid page-type routing for `detail="readable"` with a shared rule engine,
   bundled classifier, abstention path, and post-extraction quality fallback.
 - Stable nested routing diagnostics under `meta["routing"]`, including page
@@ -17,6 +21,16 @@ All notable changes to pulldown will be documented here.
   without changing the default content-only response shape.
 
 ### Changed
+- Rendered requests bypass the HTTP page cache. Browser requests receive address
+  checks; redirects, workers, and WebSockets are blocked. Use canonical URLs for
+  rendering; ordinary HTTP fetching continues to follow guarded redirects.
+- The MCP extra stays on the compatible 1.x SDK, and rendering requires
+  Playwright 1.48 or newer for WebSocket interception.
+- HTML conversion accepts current result objects as well as earlier string
+  and dictionary results. Its minimum dependency version is now 2.0, and full
+  mode explicitly retains navigation and footer content.
+- Structured table summaries retain the first column and the first data row
+  when the source has no column headers.
 - `readable` now means "auto-route to the most readable strategy" rather than
   "always use the article extractor".
 - Structured/dashboard/listing pages now route through the shared router in

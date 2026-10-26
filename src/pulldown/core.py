@@ -471,6 +471,19 @@ def _clean_landmark(root: Any, base_url: str) -> None:
             _remove_node(node)
 
 
+def _conversion_field(value: Any, key: str, default: Any = None) -> Any:
+    """Read converter fields from older dictionaries or current result objects."""
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
+
+
+def _conversion_content(result: Any) -> str:
+    if isinstance(result, str):
+        return result
+    return str(_conversion_field(result, "content", "") or "")
+
+
 def _extract_cleaned_landmark_markdown(html: str, url: str) -> str:
     from html_to_markdown import convert
     from lxml import etree
@@ -489,10 +502,7 @@ def _extract_cleaned_landmark_markdown(html: str, url: str) -> str:
     if not cleaned_html.strip():
         return ""
 
-    result = convert(cleaned_html)
-    if isinstance(result, dict):
-        return str(result.get("content", "") or "")
-    return str(result)
+    return _conversion_content(convert(cleaned_html))
 
 
 def _cell_texts(row: Any) -> list[str]:
@@ -596,8 +606,15 @@ def _extract_structured(html: str, url: str) -> tuple[str, str | None, dict]:
 
         if tag == "table":
             rows = node.xpath(".//tr")
-            header_cells = _cell_texts(rows[0]) if rows else []
-            body_rows = rows[1:] if len(rows) > 1 else []
+            has_header = bool(rows) and bool(
+                rows[0].xpath("ancestor::thead")
+                or (
+                    rows[0].xpath("./th[not(@scope='row')]")
+                    and not rows[0].xpath("./td")
+                )
+            )
+            header_cells = _cell_texts(rows[0]) if has_header else []
+            body_rows = rows[1:] if has_header else rows
             if header_cells:
                 lines.append(f"- Table columns: {' | '.join(header_cells)}")
             if body_rows:
@@ -606,8 +623,7 @@ def _extract_structured(html: str, url: str) -> tuple[str, str | None, dict]:
                 for row in shown:
                     values = _cell_texts(row)
                     if values:
-                        trimmed = values[1:] if len(values) > 1 else values
-                        lines.append(f"- {' | '.join(trimmed)}")
+                        lines.append(f"- {' | '.join(values)}")
             lines.append("")
             return
 
@@ -765,21 +781,24 @@ def _decode_response_content(resp: httpx.Response) -> tuple[bytes, str]:
 
 def _extract_full(html: str, url: str) -> tuple[str, str | None, dict]:
     """Full-page Markdown, including boilerplate."""
-    from html_to_markdown import convert
+    from inspect import signature
 
-    result = convert(html)
-    meta: dict[str, Any] = {}
-    title: str | None = None
-    if isinstance(result, dict):
-        md = result.get("content", "")
-        doc_meta = (result.get("metadata") or {}).get("document") or {}
-        for k in ("title", "description", "author", "language"):
-            v = doc_meta.get(k)
-            if v:
-                meta[k] = v
-        title = doc_meta.get("title")
+    from html_to_markdown import ConversionOptions, PreprocessingOptions, convert
+
+    preprocessing = PreprocessingOptions(enabled=False)
+    if "preprocessing" in signature(ConversionOptions).parameters:
+        # Version 3 moved preprocessing into the conversion options.
+        result = convert(html, options=ConversionOptions(preprocessing=preprocessing))
     else:
-        md = str(result)
+        result = convert(html, preprocessing=preprocessing)
+    md = _conversion_content(result)
+    meta: dict[str, Any] = {}
+    doc_meta = _conversion_field(_conversion_field(result, "metadata"), "document")
+    for k in ("title", "description", "author", "language"):
+        v = _conversion_field(doc_meta, k)
+        if v:
+            meta[k] = v
+    title: str | None = _conversion_field(doc_meta, "title")
     if not title:
         title = _title_from_lxml(html)
     return md, title, meta
@@ -914,6 +933,42 @@ def _extract_with_routing(
 # ---------------------------------------------------------------------------
 
 
+async def _route_render_request(
+    route: Any,
+    *,
+    allow_private_addresses: bool,
+    timeout_ms: int,
+) -> None:
+    """Fetch one validated HTTP(S) request without following redirects.
+
+    Browser route callbacks do not intercept subsequent HTTP redirect hops.
+    Fulfilling a redirect's final body would use the wrong document origin, so
+    rendering rejects redirects and asks the caller to use the canonical URL.
+    DNS checks here do not pin the connection address or constrain proxy DNS.
+    """
+    url = route.request.url
+    _validate_url(url, allow_private_addresses=allow_private_addresses)
+    response = await route.fetch(url=url, max_redirects=0, timeout=timeout_ms)
+    try:
+        location = response.headers.get("location")
+        if response.status in {301, 302, 303, 307, 308} and location:
+            next_url = urljoin(url, location)
+            _validate_url(next_url, allow_private_addresses=allow_private_addresses)
+            raise UrlNotAllowedError(
+                f"Rendering does not follow HTTP redirects. Retry with the canonical URL: {next_url}. "
+                "For redirected subresources, use HTTP extraction or a page whose resources do not redirect."
+            )
+
+        response_headers = dict(response.headers)
+        # A second policy restricts workers and sockets without weakening the page's CSP.
+        policy = "worker-src 'none'; connect-src http: https:"
+        original_policy = response_headers.get("content-security-policy")
+        response_headers["content-security-policy"] = f"{original_policy}, {policy}" if original_policy else policy
+        await route.fulfill(response=response, headers=response_headers)
+    finally:
+        await response.dispose()
+
+
 async def _render_page(
     url: str,
     *,
@@ -924,8 +979,14 @@ async def _render_page(
     headers: dict[str, str] | None = None,
     cookies: list[dict] | None = None,
     proxy: str | None = None,
+    allow_private_addresses: bool = False,
 ) -> tuple[str, int]:
-    """Render a page with Playwright, return (html, status_code)."""
+    """Render HTTP(S) pages with workers, service workers, and WebSockets disabled.
+
+    Routed requests use the existing address checks; HTTP redirects are rejected.
+    This is not process isolation or protection against DNS rebinding/proxy resolution.
+    """
+    _validate_url(url, allow_private_addresses=allow_private_addresses)
     try:
         from playwright.async_api import async_playwright
     except ImportError as e:
@@ -951,27 +1012,52 @@ async def _render_page(
             launch_args["proxy"] = {"server": proxy}
 
         browser = await p.chromium.launch(**launch_args)
-        context_args: dict[str, Any] = {}
-        if headers:
-            context_args["extra_http_headers"] = headers
-        context = await browser.new_context(**context_args)
-
-        if normalized_cookies:
-            await context.add_cookies(normalized_cookies)
-
-        page = await context.new_page()
-        status_code = 0
         try:
-            response = await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-            if response is not None:
-                status_code = response.status
-            await page.wait_for_timeout(wait_ms)
+            context_args: dict[str, Any] = {"service_workers": "block"}
+            if headers:
+                context_args["extra_http_headers"] = headers
+            context = await browser.new_context(**context_args)
+            blocked_requests: list[str] = []
 
-            for _ in range(scroll_count):
-                await page.evaluate("window.scrollBy(0, window.innerHeight)")
-                await page.wait_for_timeout(scroll_delay_ms)
+            async def guard_request(route: Any) -> None:
+                try:
+                    await _route_render_request(route, allow_private_addresses=allow_private_addresses, timeout_ms=timeout_ms)
+                except UrlNotAllowedError as error:
+                    blocked_requests.append(str(error))
+                    await route.abort("blockedbyclient")
+                except Exception:
+                    logger.debug("rendered request failed", exc_info=True)
+                    await route.abort("failed")
 
-            html = await page.content()
+            async def block_socket(web_socket: Any) -> None:
+                await web_socket.close(code=1008, reason="Rendering supports HTTP/HTTPS requests only")
+
+            await context.route("**/*", guard_request)
+            if not hasattr(context, "route_web_socket"):
+                raise RuntimeError("Rendering requires Playwright 1.48 or newer. Upgrade pulldown[render].")
+            await context.route_web_socket("**/*", block_socket)
+            if normalized_cookies:
+                await context.add_cookies(normalized_cookies)
+
+            page = await context.new_page()
+            status_code = 0
+            try:
+                response = await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+                if response is not None:
+                    status_code = response.status
+                await page.wait_for_timeout(wait_ms)
+
+                for _ in range(scroll_count):
+                    await page.evaluate("window.scrollBy(0, window.innerHeight)")
+                    await page.wait_for_timeout(scroll_delay_ms)
+
+                html = await page.content()
+            except Exception as error:
+                if blocked_requests:
+                    raise UrlNotAllowedError(f"Rendered request blocked: {blocked_requests[0]}") from error
+                raise
+            if blocked_requests:
+                raise UrlNotAllowedError(f"Rendered request blocked: {blocked_requests[0]}")
         finally:
             await browser.close()
 
@@ -1047,7 +1133,8 @@ async def fetch(
     render_timeout_ms : int
         Total page load timeout in ms (render path).
     cache : PageCache, optional
-        Cache instance for validator-based caching.
+        Cache instance for HTTP validator-based caching. Ignored when rendering,
+        since browser output also depends on scripts, cookies, and wait/scroll options.
     routing_log_path : str, optional
         Append JSONL routing diagnostics for each fetched page.
 
@@ -1057,6 +1144,9 @@ async def fetch(
     """
     if isinstance(detail, str):
         detail = Detail(detail)
+
+    if render:
+        cache = None
 
     t0 = time.perf_counter()
 
@@ -1121,6 +1211,7 @@ async def fetch(
                 headers=headers,
                 cookies=cookies,
                 proxy=proxy,
+                allow_private_addresses=allow_private_addresses,
             )
             if len(html.encode("utf-8", errors="ignore")) > max_bytes:
                 elapsed = (time.perf_counter() - t0) * 1000

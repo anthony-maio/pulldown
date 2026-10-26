@@ -1,0 +1,20 @@
+{
+  "url": "http://127.0.0.1:60198/field-notes.html",
+  "status_code": 200,
+  "title": "Release field notes",
+  "content": "Extraction fixture / Fictional project\nRelease field notes\nA release is useful when someone can install it and complete the job the documentation describes. This sample review follows three fictional services through that check. The names and status entries are demonstration data, kept stable so an extraction result can be compared with its source.\nStart with the installed artifact\nThe team built a wheel, installed it into a new environment, and ran the same commands shown in the quickstart. Running from a separate directory mattered: the tests needed to import the installed package, not a source checkout that happened to contain files missing from the release. They checked the version before examining any output.\nFor the documentation service, the first useful result was an article with its heading, paragraphs, and source link intact. The team compared the extracted text with this page, then checked that the navigation label had not become part of the article. The live release board provides a separate case where JavaScript creates the content.\nService readiness\nThe table records ownership and the next release decision. A summary may be enough for a quick review. A workflow that needs every cell should preserve the table and verify the row count instead of assuming a shorter representation retained everything.\n| Three services in the sample release |  |  | \n|---|---|---|\n| Service | Owner | Status | \n|---|---|---|\n| Documentation | Alex | Ready for review | \n| Search | Morgan | Needs fixture check | \n| Export | Sam | Ready for review | \nKeep the evidence with the result\nEach output should retain enough context to explain how it was produced: the package version, the requested detail level, the source URL, and whether a browser rendered the page. Those fields distinguish an HTTP response from the document a browser sees after JavaScript has run. They also make a surprising extraction easier to reproduce.\nThe final review checks the content before passing it to another tool. A successful HTTP status does not guarantee a useful extraction, and a shorter result does not establish that every important fact survived. The gallery keeps the source and output beside each other so the reader can make that comparison directly.\nReview checklist\n- Confirm the installed version.\n- Compare the heading, source link, and table with the original page.\n- Use browser rendering only when the HTTP result lacks the content you need.",
+  "elapsed_ms": 694.9,
+  "from_cache": false,
+  "ok": true,
+  "meta": {
+    "routing": {
+      "page_type": "article",
+      "source": "classifier",
+      "confidence": 0.65402,
+      "abstained": false,
+      "strategy_used": "minimal",
+      "quality_grade": "low",
+      "render_recommended": false
+    }
+  }
+}

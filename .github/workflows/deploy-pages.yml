@@ -25,6 +25,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Wait for the documented PyPI version
+        shell: bash
+        run: |
+          VERSION="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --output /dev/null "https://pypi.org/pypi/pulldown/${VERSION}/json"; then
+              echo "pulldown ${VERSION} is available; deploying its examples"
+              exit 0
+            fi
+            echo "Waiting for pulldown ${VERSION} before updating the quickstart (${attempt}/30)"
+            sleep 20
+          done
+          echo "::error::pulldown ${VERSION} is not published; keeping the existing site"
+          exit 1
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:

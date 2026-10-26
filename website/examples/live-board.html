@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live release board</title>
+  <meta name="description" content="A deterministic JavaScript-rendered page for testing pulldown's browser mode.">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="examples.css">
+</head>
+<body class="source-page">
+  <nav aria-label="Sample navigation"><a href="index.html">Example gallery</a> <a href="field-notes.html">Release field notes</a></nav>
+  <main><p class="eyebrow">Extraction fixture / JavaScript required</p><h1>Live release board</h1><div id="board"><p>The release cards are loading. JavaScript must run before they appear.</p></div><noscript>This fixture requires JavaScript to display its release cards.</noscript></main>
+  <script>
+    setTimeout(function () {
+      var board = document.getElementById('board');
+      var releases = [
+        { name: 'Documentation', owner: 'Alex', status: 'Ready for review' },
+        { name: 'Search', owner: 'Morgan', status: 'Needs fixture check' },
+        { name: 'Export', owner: 'Sam', status: 'Ready for review' }
+      ];
+      var marker = document.createElement('p');
+      marker.textContent = 'RENDERED-BOARD-READY';
+      board.replaceChildren(marker);
+      releases.forEach(function (release) {
+        var article = document.createElement('article');
+        var title = document.createElement('h2');
+        title.textContent = release.name;
+        var body = document.createElement('p');
+        body.textContent = 'Owner: ' + release.owner + '. Status: ' + release.status + '. This card was inserted by JavaScript after the initial response.';
+        article.append(title, body);
+        board.append(article);
+      });
+    }, 200);
+  </script>
+</body>
+</html>

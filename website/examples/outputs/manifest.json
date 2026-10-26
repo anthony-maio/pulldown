@@ -1,0 +1,43 @@
+{
+  "package": "pulldown",
+  "version": "0.4.0",
+  "captured_at": "2026-10-26T19:58:52.103594+00:00",
+  "source": "Local HTTP server serving website/examples from this checkout; installed wheel CLI",
+  "fixtures": {
+    "article": "field-notes.html",
+    "board": "live-board.html"
+  },
+  "dependencies": {
+    "playwright": "1.64.1",
+    "html-to-markdown": "3.18.6",
+    "mcp": "1.30.0"
+  },
+  "modes": {
+    "minimal": {
+      "characters": 2454,
+      "strategy": "minimal"
+    },
+    "readable": {
+      "characters": 2537,
+      "strategy": "article"
+    },
+    "structured": {
+      "characters": 2437,
+      "strategy": "structured"
+    },
+    "full": {
+      "characters": 2937,
+      "strategy": "full"
+    },
+    "raw": {
+      "characters": 3706,
+      "strategy": "raw"
+    }
+  },
+  "render": {
+    "http_characters": 390,
+    "rendered_characters": 699,
+    "marker_present": true,
+    "redirect_blocked_before_target": true
+  }
+}

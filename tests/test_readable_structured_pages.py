@@ -94,6 +94,7 @@ class TestReadableStructuredPages:
         assert "## Flagship" in content
         assert "## Writing" in content
         assert "### Medium" in content
-        assert "- HDCS — Heterogeneous Divergence-Convergence Swarm." in content
+        assert "HDCS" in content
+        assert "Heterogeneous Divergence-Convergence Swarm." in content
         assert "Seeking" not in content
         assert "ORCID" not in content

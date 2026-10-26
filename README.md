@@ -24,12 +24,53 @@ pip install 'pulldown[all]'          # everything
 ```
 
 Core installs include Brotli support, so `br`-compressed HTML is decoded before
-`minimal`, `readable`, `full`, or `raw` processing.
+`minimal`, `readable`, `structured`, `full`, or `raw` processing.
 
 Core installs also include `lxml_html_clean`, avoiding the missing-helper import
 issue some agent sandboxes hit on older releases.
 
 For rendered pages, also run `playwright install chromium` once.
+
+## A complete first run
+
+[Compare the source and captured outputs in the example gallery](https://pulldown.making-minds.ai/examples/).
+It uses a stable article with headings, links, and a service table, plus a second
+page whose release cards are inserted by JavaScript. The service data is fictional.
+
+In a fresh Python 3.10+ virtual environment:
+
+```bash
+python -m pip install "pulldown==0.4.0"
+pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail structured --json-output --meta
+```
+
+Look for `Release field notes`, the section headings, and the table summary.
+Change `--detail` to `minimal`, `readable`, `full`, or `raw` and compare the result
+with the source page. Structured tables are summaries; use `full` or `raw` when
+every cell matters.
+
+Then try the browser path:
+
+```bash
+python -m pip install "pulldown[render]==0.4.0"
+python -m playwright install chromium
+pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable
+pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable --render --wait 100
+```
+
+The first result lacks the release cards. The rendered result includes
+`RENDERED-BOARD-READY` and the Documentation, Search, and Export cards.
+Rendered requests bypass `PageCache`, so a prior HTTP result cannot suppress the
+browser run. This example verifies the installed package on known fixtures; it
+does not establish extraction quality on every site.
+
+Browser rendering checks HTTP(S) requests, blocks service workers and other
+worker execution, and closes WebSockets. It rejects redirects; use the final
+canonical URL when rendering. Ordinary HTTP fetching continues to support
+guarded redirects. Sites that depend on workers or sockets may not render
+completely. Address checks are not a
+replacement for process and network isolation when handling untrusted pages;
+DNS changes or proxy-side resolution require their own network controls.
 
 ## Quick Start
 
@@ -144,13 +185,17 @@ quality outcomes for offline retraining.
 
 ## Security
 
-pulldown refuses to fetch URLs that resolve to private, loopback,
-link-local, or cloud-metadata addresses by default. This prevents
-LLM-driven SSRF into internal services (e.g., AWS metadata at
-`169.254.169.254`, Redis on `localhost:6379`). Override with
-`allow_private_addresses=True` if you understand the risk.
+pulldown checks resolved addresses and rejects private, loopback,
+link-local, or cloud-metadata destinations by default. Ordinary HTTP requests
+validate each redirect destination. Rendering rejects redirects and checks its
+HTTP(S) subrequests. The checks do not pin the eventual connection address or
+control proxy-side DNS; use network isolation when serving untrusted input.
+`allow_private_addresses=True` disables the address restriction and is intended
+for explicitly trusted local sources, such as the gallery's fixture server.
 
-Responses above 10 MiB are rejected by default (`max_bytes` parameter).
+HTTP responses above 10 MiB are rejected by default (`max_bytes` parameter).
+Rendering checks the serialized DOM after loading; this is not a browser memory
+or total network-transfer limit.
 
 Only `http` and `https` schemes are accepted; `file:`, `ftp:`, etc. are
 rejected.
@@ -166,6 +211,25 @@ await pulldown("https://example.com", include_meta=True)
 
 That JSON response includes the same nested `meta["routing"]` object returned
 by the Python API.
+
+## Verify the installed package
+
+From a source checkout, build a wheel and run the same checks used before
+publication:
+
+```bash
+python -m pip install ".[dev]" build twine
+python -m pytest tests/ -q
+python -m build
+python scripts/smoke-installed.py --wheel dist/pulldown-0.4.0-py3-none-any.whl --output-dir website/examples/outputs
+```
+
+The smoke check creates a separate environment, installs the wheel and Chromium,
+serves the fixture pages on loopback, and runs the actual CLI. It verifies all
+five modes, routing metadata, the private-address default, and the HTTP/render
+comparison with a shared cache. Captures include a manifest identifying their
+version and local fixture source. On Linux, `--install-browser-deps` also installs
+Chromium's system dependencies.
 
 ## License
 

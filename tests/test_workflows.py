@@ -12,13 +12,16 @@ def test_ci_workflow_is_slimmed_for_pushes_and_guarded_by_concurrency():
     assert "workflow_dispatch:" in workflow
     assert "concurrency:" in workflow
     assert "paths-ignore:" in workflow
-    assert "website/**" in workflow
+    assert '"website/index.html"' in workflow
+    assert '"website/**"' not in workflow
     assert "docs/**" in workflow
     assert "if: github.event_name != 'pull_request'" in workflow
     assert "if: github.event_name == 'pull_request'" in workflow
     assert "matrix:" in workflow
     assert "include:" in workflow
     assert 'python-version: "3.12"' in workflow
+    assert "scripts/smoke-installed.py" in workflow
+    assert "--install-browser-deps" in workflow
 
 
 def test_pages_workflow_only_deploys_via_actions_artifact_path():

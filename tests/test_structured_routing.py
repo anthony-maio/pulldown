@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
+import pytest
 
 from pulldown import Detail, fetch
 
@@ -25,6 +26,40 @@ def _patch_async_client(monkeypatch, html: str) -> None:
 
 
 class TestStructuredRouting:
+    @pytest.mark.parametrize("first_cell", ["<td>Documentation</td>", '<th scope="row">Documentation</th>'])
+    async def test_headerless_tables_preserve_first_data_row(self, monkeypatch, first_cell):
+        html = f"""<html><body><main><h1>Service status</h1><table>
+        <tr>{first_cell}<td>Platform</td><td>Ready</td></tr>
+        <tr><td>Search</td><td>Discovery</td><td>Ready</td></tr>
+        </table></main></body></html>"""
+        _patch_async_client(monkeypatch, html)
+
+        result = await fetch("https://example.com/status", detail="structured")
+
+        assert result.ok
+        assert "Table columns:" not in result.content
+        assert "Showing first 2 of 2 rows" in result.content
+        assert "- Documentation | Platform | Ready" in result.content
+        assert "- Search | Discovery | Ready" in result.content
+
+    async def test_structured_tables_preserve_first_column_values(self, monkeypatch):
+        html = """<html><head><title>Service status</title></head><body><main>
+        <h1>Service status</h1><table>
+        <tr><th>Service</th><th>Owner</th><th>Status</th></tr>
+        <tr><td>Documentation</td><td>Platform</td><td>Ready</td></tr>
+        <tr><td>Search</td><td>Discovery</td><td>Ready</td></tr>
+        <tr><td>Export</td><td>Data</td><td>Degraded</td></tr>
+        </table></main></body></html>"""
+        _patch_async_client(monkeypatch, html)
+
+        result = await fetch("https://example.com/status", detail="structured")
+
+        assert result.ok
+        assert "Table columns: Service | Owner | Status" in result.content
+        assert "- Documentation | Platform | Ready" in result.content
+        assert "- Search | Discovery | Ready" in result.content
+        assert "- Export | Data | Degraded" in result.content
+
     async def test_structured_detail_extracts_dashboard_hierarchy(self, monkeypatch):
         html = _fixture_text("parameter_golf_dashboard.html")
         _patch_async_client(monkeypatch, html)
@@ -39,7 +74,7 @@ class TestStructuredRouting:
         assert "## Leaderboard Snapshot" in result.content
         assert "- Table columns: Status | Rank | PR | Author | BPB | Size" in result.content
         assert "- Showing first 8 of 12 rows" in result.content
-        assert "- 1 | #42 | @chonchiog | 0.0005 | 16.0 MB" in result.content
+        assert "- ALIVE | 1 | #42 | @chonchiog | 0.0005 | 16.0 MB" in result.content
         assert "GitHub" not in result.content
 
     async def test_readable_auto_routes_dashboard_pages_to_structured(self, monkeypatch):
