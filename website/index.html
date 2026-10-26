@@ -368,7 +368,7 @@
         <div class="section-label reveal">Detail Levels</div>
         <h2 class="section-headline reveal">One source. Five ways to extract it.</h2>
         <p class="section-intro reveal">
-          Version 0.4.0 accepts <code>detail</code> in Python and <code>--detail</code> in the CLI.
+          Version 0.4.1 accepts <code>detail</code> in Python and <code>--detail</code> in the CLI.
           These are mode guides; <a href="examples/index.html">the example gallery</a> shows saved output beside the source pages and commands that produced it.
         </p>
 
@@ -432,12 +432,12 @@
         <div class="quickstart-grid">
           <div class="quickstart-col reveal">
             <div class="code-label">Install and fetch</div>
-            <pre class="code-block"><code>python -m pip install "pulldown==0.4.0"
+            <pre class="code-block"><code>python -m pip install "pulldown==0.4.1"
 pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail readable
 pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail structured</code></pre>
 
             <div class="code-label" style="margin-top:var(--space-6);">Render the JavaScript example</div>
-            <pre class="code-block"><code>python -m pip install "pulldown[render]==0.4.0"
+            <pre class="code-block"><code>python -m pip install "pulldown[render]==0.4.1"
 python -m playwright install chromium
 pulldown get https://pulldown.making-minds.ai/examples/live-board.html --render --detail structured</code></pre>
             <p style="font-size:var(--text-xs);color:var(--color-text-muted);">The gallery includes the HTTP-only output for comparison. Installing the render extra and Chromium are separate steps. Rendering requires a canonical URL: redirects, workers, and WebSockets are blocked.</p>
@@ -588,7 +588,7 @@ print(result.content)</code></pre>
               <div class="integration-badge">Claude · Codex · agents</div>
             </div>
             <p style="margin-top:var(--space-3);font-size:var(--text-xs);">Install the server extra in the environment your host uses:</p>
-            <pre class="code-block"><code>python -m pip install "pulldown[mcp]==0.4.0"</code></pre>
+            <pre class="code-block"><code>python -m pip install "pulldown[mcp]==0.4.1"</code></pre>
             <pre class="code-block" style="margin-top:var(--space-4);font-size:var(--text-xs);"><code>{
   "mcpServers": {
     "pulldown": {

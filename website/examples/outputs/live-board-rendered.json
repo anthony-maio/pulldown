@@ -1,9 +1,9 @@
 {
-  "url": "http://127.0.0.1:60198/live-board.html",
+  "url": "http://127.0.0.1:50741/live-board.html",
   "status_code": 200,
   "title": "Live release board",
   "content": "---\nmeta-description: A deterministic JavaScript-rendered page for testing pulldown's browser mode.\nmeta-viewport: width=device-width, initial-scale=1.0\ntitle: Live release board\n---\n\n[Example gallery](index.html) [Release field notes](field-notes.html)\n\nExtraction fixture / JavaScript required\n\n# Live release board\n\nRENDERED-BOARD-READY\n\n## Documentation\n\nOwner: Alex. Status: Ready for review. This card was inserted by JavaScript after the initial response.\n\n## Search\n\nOwner: Morgan. Status: Needs fixture check. This card was inserted by JavaScript after the initial response.\n\n## Export\n\nOwner: Sam. Status: Ready for review. This card was inserted by JavaScript after the initial response.\n",
-  "elapsed_ms": 2424.8,
+  "elapsed_ms": 2060.0,
   "from_cache": false,
   "ok": true,
   "meta": {

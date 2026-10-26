@@ -11,12 +11,12 @@
 <body>
   <nav aria-label="Main navigation"><a href="../index.html">pulldown</a><a href="https://making-minds.ai/products/pulldown/">Product guide</a><a href="https://github.com/anthony-maio/pulldown">Source</a></nav>
   <main>
-    <p class="eyebrow">A complete first run / Version 0.4.0</p>
+    <p class="eyebrow">A complete first run / Version 0.4.1</p>
     <h1>See what reaches your pipeline.</h1>
     <p class="intro">Compare the source with the text pulldown actually extracted. Start with a stable article, choose a detail level, then try a page whose content only appears after JavaScript runs.</p>
     <h2>Install and fetch the example</h2>
     <p>Use Python 3.10 or newer in a fresh virtual environment. Core extraction works without Chromium.</p>
-    <pre><code>python -m pip install "pulldown==0.4.0"
+    <pre><code>python -m pip install "pulldown==0.4.1"
 pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail structured --json-output --meta</code></pre>
     <p>Look for <code>Release field notes</code>, its section headings, and the service table summary. The JSON metadata explains which extraction strategy ran.</p>
     <h2>One page, five outputs</h2>
@@ -28,7 +28,7 @@ pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail
     <p id="output-meta" class="eyebrow"></p><p id="copy-status" role="status" aria-live="polite"></p>
     <h2>When the initial HTML is not enough</h2>
     <p><a href="live-board.html" target="_blank" rel="noopener noreferrer">Open the JavaScript release board</a>. Its three cards are inserted after the initial response. First fetch it over HTTP, then repeat with Chromium.</p>
-    <pre><code>python -m pip install "pulldown[render]==0.4.0"
+    <pre><code>python -m pip install "pulldown[render]==0.4.1"
 python -m playwright install chromium
 pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable
 pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable --render --wait 100</code></pre>
@@ -69,7 +69,7 @@ pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail 
         if (mode.value !== chosen) return;
         document.getElementById('mode-output').textContent = result.content;
         const strategy = result.meta && result.meta.routing && result.meta.routing.strategy_used;
-        document.getElementById('output-meta').textContent = result.content.length + ' characters' + (strategy ? ' / Strategy: ' + strategy : '') + ' / Captured from pulldown 0.4.0';
+        document.getElementById('output-meta').textContent = result.content.length + ' characters' + (strategy ? ' / Strategy: ' + strategy : '') + ' / Captured from pulldown 0.4.1';
       } catch (error) {
         if (mode.value === chosen) document.getElementById('mode-output').textContent = 'The capture could not be loaded. Open the result JSON or run the command above.';
       }

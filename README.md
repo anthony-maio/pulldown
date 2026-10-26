@@ -40,7 +40,7 @@ page whose release cards are inserted by JavaScript. The service data is fiction
 In a fresh Python 3.10+ virtual environment:
 
 ```bash
-python -m pip install "pulldown==0.4.0"
+python -m pip install "pulldown==0.4.1"
 pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail structured --json-output --meta
 ```
 
@@ -52,7 +52,7 @@ every cell matters.
 Then try the browser path:
 
 ```bash
-python -m pip install "pulldown[render]==0.4.0"
+python -m pip install "pulldown[render]==0.4.1"
 python -m playwright install chromium
 pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable
 pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable --render --wait 100
@@ -221,7 +221,7 @@ publication:
 python -m pip install ".[dev]" build twine
 python -m pytest tests/ -q
 python -m build
-python scripts/smoke-installed.py --wheel dist/pulldown-0.4.0-py3-none-any.whl --output-dir website/examples/outputs
+python scripts/smoke-installed.py --wheel dist/pulldown-0.4.1-py3-none-any.whl --output-dir website/examples/outputs
 ```
 
 The smoke check creates a separate environment, installs the wheel and Chromium,

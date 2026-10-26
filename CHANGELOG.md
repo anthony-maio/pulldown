@@ -2,7 +2,7 @@
 
 All notable changes to pulldown will be documented here.
 
-## [0.4.0] - 2026-10-26
+## [0.4.1] - 2026-10-26
 
 ### Added
 - A public extraction gallery with captured outputs for all five detail levels

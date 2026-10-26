@@ -1,7 +1,7 @@
 {
   "package": "pulldown",
-  "version": "0.4.0",
-  "captured_at": "2026-10-26T19:58:52.103594+00:00",
+  "version": "0.4.1",
+  "captured_at": "2026-10-26T20:05:56.449176+00:00",
   "source": "Local HTTP server serving website/examples from this checkout; installed wheel CLI",
   "fixtures": {
     "article": "field-notes.html",
