@@ -39,6 +39,11 @@ pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail 
     </div>
     <h2>Choose what the next step needs</h2>
     <div class="cards"><div class="card"><h3>Reading and retrieval</h3><p>Start with <code>readable</code>. Compare headings, source links, and important facts before adding the text to an index.</p></div><div class="card"><h3>Listings and tables</h3><p>Try <code>structured</code> for hierarchy and table summaries. Use <code>full</code> or <code>raw</code> when every row or original element matters.</p></div><div class="card"><h3>Diagnosing missing content</h3><p>Inspect <code>raw</code> first. Use rendering when the initial response is only a shell, and allow for the cost of starting a browser.</p></div></div>
+    <h2>Use the same page reader in Hermes</h2>
+    <p>The native <code>pulldown_fetch</code> tool reads a public URL and returns Markdown, source metadata, and explicit truncation information. HTTP is the default; request rendering when the page needs JavaScript. It runs in its own Python environment.</p>
+    <p>The Hermes integration currently requires a source installation; the PyPI 0.4.2 commands above cover the existing CLI. <a href="https://github.com/anthony-maio/pulldown/blob/main/docs/hermes.md">Follow the Hermes installation and examples</a>, then try the release board or an independent documentation page.</p>
+    <pre><code>Use pulldown_fetch to read https://docs.python.org/3/library/asyncio.html.
+Explain when asyncio is useful and cite the source.</code></pre>
     <h2>What this example establishes</h2>
     <p>All five modes work from the installed package, and Chromium retrieves content missing from the initial HTML. This is a repeatable fixture check. It does not establish extraction quality on every site, access to login-only content, or a token-saving percentage.</p>
     <p>Private addresses are blocked by default. The local verification server requires an explicit override; these public example URLs do not. Browser rendering checks HTTP requests and blocks redirects, workers, and WebSockets. Use the final canonical URL when rendering. Ordinary HTTP fetching supports guarded redirects. These checks do not replace network isolation when processing untrusted sites.</p>

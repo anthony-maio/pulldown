@@ -114,6 +114,8 @@ def smoke(wheel, work, *, install_browser_deps, output_dir):
         "import asyncio,importlib.metadata,importlib.resources,json,pulldown,pulldown.mcp_server; "
         "assets=importlib.resources.files('pulldown'); "
         "assert assets.joinpath('py.typed').is_file(); "
+        "assert assets.joinpath('hermes_plugin/plugin.yaml').is_file(); "
+        "assert assets.joinpath('hermes_plugin/__init__.py').is_file(); "
         "json.loads(assets.joinpath('routing_model.json').read_text()); "
         "tools=asyncio.run(pulldown.mcp_server.mcp.list_tools()); "
         "assert {tool.name for tool in tools} == {'pulldown','pulldown_many','pulldown_crawl'}; "
@@ -126,6 +128,24 @@ def smoke(wheel, work, *, install_browser_deps, output_dir):
     installed_path = Path(identity["path"]).resolve()
     assert installed_path.is_relative_to(environment.resolve()), "import must come from the installed wheel"
     assert identity["version"] == identity["runtime_version"], "wheel metadata and runtime version must agree"
+
+    # Exercise the installed CLI without depending on a Hermes installation.
+    hermes_home = work / "hermes-profile"
+    hermes_home.mkdir()
+    config = hermes_home / "config.yaml"
+    config.write_text("model: preserve-existing-settings\n", encoding="utf-8")
+    config_before = config.read_bytes()
+    run([cli, "hermes", "install", "--home", hermes_home], cwd=consumer, env=env)
+    doctor = json.loads(run([
+        cli, "hermes", "doctor", "--home", hermes_home, "--json-output",
+    ], cwd=consumer, env=env))
+    assert doctor["installed"] and not doctor["issues"], doctor
+    runtime = json.loads((hermes_home / "plugins/pulldown/runtime.json").read_text())
+    assert Path(runtime["python"]) == python.absolute(), runtime
+    assert config.read_bytes() == config_before, "installer changed Hermes configuration"
+    run([cli, "hermes", "uninstall", "--home", hermes_home], cwd=consumer, env=env)
+    assert config.read_bytes() == config_before, "uninstaller changed Hermes configuration"
+    assert not (hermes_home / "plugins/pulldown/__init__.py").exists()
 
     browser_command = [python, "-m", "playwright", "install"]
     if install_browser_deps:

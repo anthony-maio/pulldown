@@ -371,5 +371,68 @@ def cache_cmd(action, cache_dir):
         click.echo(f"Cleared {n} cache entries.")
 
 
+# ---------------------------------------------------------------------------
+# Hermes plugin installation
+# ---------------------------------------------------------------------------
+
+
+@main.group("hermes")
+def hermes_cmd():
+    """Install and check the native Hermes plugin in a local profile."""
+
+
+def _hermes_action(action, home, json_output):
+    from . import hermes_install
+
+    try:
+        result = getattr(hermes_install, action)(home)
+    except (OSError, ValueError) as error:
+        if json_output:
+            click.echo(json.dumps({"ok": False, "error": str(error)}, indent=2))
+            raise click.exceptions.Exit(1)
+        raise click.ClickException(str(error)) from error
+    if json_output:
+        click.echo(json.dumps(result, indent=2))
+    elif action == "install":
+        click.echo(f"Installed Pulldown's Hermes plugin at {result['plugin_dir']}")
+        click.echo("Enable pulldown in this profile with `hermes plugins enable pulldown`, then start a new session.")
+        click.echo(f"Use the same HERMES_HOME: {result['home']}")
+    elif action == "uninstall":
+        click.echo(f"Removed {len(result['removed_paths'])} managed files from {result['plugin_dir']}")
+        click.echo("Host configuration and cached pages remain unchanged.")
+    elif result["installed"]:
+        click.echo(f"Pulldown's Hermes plugin files and runtime paths are valid: {result['plugin_dir']}")
+        click.echo("This check does not verify that Hermes has enabled or loaded the plugin.")
+    else:
+        for issue in result["issues"]:
+            click.echo(issue, err=True)
+    if action == "doctor" and not result["installed"]:
+        raise click.exceptions.Exit(1)
+
+
+@hermes_cmd.command("install")
+@click.option("--home", type=click.Path(file_okay=False), default=None, help="Hermes profile directory; defaults to HERMES_HOME or ~/.hermes.")
+@click.option("--json-output", "--json", "-j", is_flag=True, help="Return JSON.")
+def hermes_install_cmd(home, json_output):
+    """Copy plugin files and record this Python environment; does not enable it."""
+    _hermes_action("install", home, json_output)
+
+
+@hermes_cmd.command("doctor")
+@click.option("--home", type=click.Path(file_okay=False), default=None, help="Hermes profile directory; defaults to HERMES_HOME or ~/.hermes.")
+@click.option("--json-output", "--json", "-j", is_flag=True, help="Return JSON.")
+def hermes_doctor_cmd(home, json_output):
+    """Check ownership, copied files, and runtime paths without changing them."""
+    _hermes_action("doctor", home, json_output)
+
+
+@hermes_cmd.command("uninstall")
+@click.option("--home", type=click.Path(file_okay=False), default=None, help="Hermes profile directory; defaults to HERMES_HOME or ~/.hermes.")
+@click.option("--json-output", "--json", "-j", is_flag=True, help="Return JSON.")
+def hermes_uninstall_cmd(home, json_output):
+    """Remove unchanged plugin files, preserving user additions and caches."""
+    _hermes_action("uninstall", home, json_output)
+
+
 if __name__ == "__main__":
     main()

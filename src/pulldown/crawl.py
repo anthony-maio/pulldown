@@ -159,19 +159,23 @@ def _extract_links(html: str, base_url: str) -> set[str]:
 
 
 async def _load_robots(
-    base_url: str, *, headers: dict[str, str], timeout: float, verify_ssl: bool
+    base_url: str, *, headers: dict[str, str], timeout: float, verify_ssl: bool,
+    allow_private_addresses: bool = False,
 ) -> urllib.robotparser.RobotFileParser | None:
     """Fetch + parse robots.txt for base_url's origin. Returns None on any failure."""
     parsed = urlparse(base_url)
     robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
     try:
+        _validate_url(robots_url, allow_private_addresses=allow_private_addresses)
         async with httpx.AsyncClient(
             headers=headers,
             timeout=httpx.Timeout(timeout),
-            follow_redirects=True,
+            follow_redirects=False,
             verify=verify_ssl,
         ) as client:
-            resp = await client.get(robots_url)
+            resp = await _get_following_safe_redirects(
+                client, robots_url, allow_private_addresses=allow_private_addresses,
+            )
             if resp.status_code >= 400:
                 return None
             text = resp.text
@@ -465,6 +469,7 @@ async def crawl(
             headers=req_headers,
             timeout=timeout,
             verify_ssl=verify_ssl,
+            allow_private_addresses=allow_private_addresses,
         )
 
     visited: set[str] = set()

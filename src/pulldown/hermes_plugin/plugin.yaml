@@ -1,0 +1,7 @@
+name: pulldown
+version: 0.1.0
+description: Fetch public web pages as bounded Markdown, with optional Chromium rendering.
+kind: standalone
+python_runtime: external
+provides_tools:
+  - pulldown_fetch

@@ -13,6 +13,16 @@ Pull down web pages as clean Markdown for LLM agents.
 - SSRF guards: private/loopback/metadata addresses blocked by default
 - Response size caps and transient-error retries
 - CLI, Python API, and MCP server
+- Native Hermes page-reading tool (install from this checkout)
+
+## Hermes plugin
+
+Use Pulldown to read public documentation and pages inside Hermes, with HTTP
+fetching by default and explicit Chromium rendering for JavaScript content.
+The `pulldown_fetch` tool returns Markdown, source and routing metadata, and
+truncation information. [Install it and try the examples](docs/hermes.md).
+This integration is available from source; the published PyPI 0.4.2 package
+predates the Hermes commands.
 
 ## Install
 

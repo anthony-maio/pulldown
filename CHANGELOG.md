@@ -2,6 +2,19 @@
 
 All notable changes to pulldown will be documented here.
 
+## [Unreleased]
+
+### Added
+- Native Hermes `pulldown_fetch` tool with HTTP and explicit browser rendering,
+  bounded responses, source metadata, and a separate Python runtime.
+- `pulldown hermes install`, `doctor`, and `uninstall` commands that preserve
+  host configuration and locally modified plugin files.
+
+### Fixed
+- Crawler robots.txt redirects now apply the same private-address checks as
+  page requests, including loopback and metadata addresses. Explicit local
+  crawling still supports local robots.txt files.
+
 ## [0.4.2] - 2026-10-26
 
 ### Added
