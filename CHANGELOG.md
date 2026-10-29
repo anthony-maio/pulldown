@@ -2,13 +2,15 @@
 
 All notable changes to pulldown will be documented here.
 
-## [Unreleased]
+## [0.5.0] - 2026-10-29
 
 ### Added
 - Native Hermes `pulldown_fetch` tool with HTTP and explicit browser rendering,
   bounded responses, source metadata, and a separate Python runtime.
 - `pulldown hermes install`, `doctor`, and `uninstall` commands that preserve
   host configuration and locally modified plugin files.
+- Direct Hermes repository installation with a pinned commit and an explicitly
+  configured external Python environment.
 
 ### Fixed
 - Crawler robots.txt redirects now apply the same private-address checks as

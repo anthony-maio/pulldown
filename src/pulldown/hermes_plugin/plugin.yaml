@@ -3,5 +3,16 @@ version: 0.1.0
 description: Fetch public web pages as bounded Markdown, with optional Chromium rendering.
 kind: standalone
 python_runtime: external
+requires_hermes: ">=0.22.2"
+author: Anthony Maio
+homepage: https://github.com/anthony-maio/pulldown
 provides_tools:
   - pulldown_fetch
+config_schema:
+  python_path:
+    type: str
+    description: Absolute Python executable path in the environment containing Pulldown.
+  timeout_seconds:
+    type: int
+    default: 60
+    description: Fetch deadline, from 5 through 120 seconds.

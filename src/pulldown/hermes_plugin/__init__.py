@@ -86,6 +86,16 @@ def _runtime():
         ) from exc
 
 
+def _configured_runtime(ctx):
+    python = ctx.get_config("python_path", None)
+    if python is None:
+        return _runtime()
+    if not isinstance(python, str) or not Path(python).is_absolute() or not Path(python).is_file():
+        raise PluginError("runtime_unavailable", "Set python_path to the absolute Python executable in the environment where Pulldown is installed.")
+    # Preserve the venv executable path; resolving its symlink selects system Python.
+    return {"python": python, "cache_dir": str(Path(ctx.state.data_dir) / "cache")}
+
+
 def _stop_process(process):
     """Stop this worker and its browser children on timeout or output overflow."""
     if os.name == "posix":
@@ -212,7 +222,7 @@ def _handle(ctx, args):
     try:
         arguments = _arguments(args)
         timeout = _integer(ctx.get_config("timeout_seconds", 60), "timeout_seconds", 5, 120)
-        return json.dumps(_run(_runtime(), arguments, timeout), ensure_ascii=False)
+        return json.dumps(_run(_configured_runtime(ctx), arguments, timeout), ensure_ascii=False)
     except PluginError as exc:
         return json.dumps({"ok": False, "error": str(exc), "code": exc.code})
 

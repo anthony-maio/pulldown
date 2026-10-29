@@ -1,6 +1,6 @@
 """pulldown: Fetch web pages as clean Markdown for LLM agents."""
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 
 from .cache import PageCache
 from .core import Detail, FetchResult, fetch, fetch_many

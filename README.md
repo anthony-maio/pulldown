@@ -13,16 +13,16 @@ Pull down web pages as clean Markdown for LLM agents.
 - SSRF guards: private/loopback/metadata addresses blocked by default
 - Response size caps and transient-error retries
 - CLI, Python API, and MCP server
-- Native Hermes page-reading tool (install from this checkout)
+- Native Hermes page-reading tool
 
 ## Hermes plugin
 
 Use Pulldown to read public documentation and pages inside Hermes, with HTTP
 fetching by default and explicit Chromium rendering for JavaScript content.
 The `pulldown_fetch` tool returns Markdown, source and routing metadata, and
-truncation information. [Install it and try the examples](docs/hermes.md).
-This integration is available from source; the published PyPI 0.4.2 package
-predates the Hermes commands.
+truncation information. [Install it and try the examples](https://github.com/anthony-maio/pulldown/blob/main/docs/hermes.md).
+The Hermes integration is included in Pulldown 0.5.0 and newer. Install the
+package in a persistent Python environment, then run `pulldown hermes install`.
 
 ## Install
 
@@ -50,7 +50,7 @@ page whose release cards are inserted by JavaScript. The service data is fiction
 In a fresh Python 3.10+ virtual environment:
 
 ```bash
-python -m pip install "pulldown==0.4.2"
+python -m pip install "pulldown==0.5.0"
 pulldown get https://pulldown.making-minds.ai/examples/field-notes.html --detail structured --json-output --meta
 ```
 
@@ -62,7 +62,7 @@ every cell matters.
 Then try the browser path:
 
 ```bash
-python -m pip install "pulldown[render]==0.4.2"
+python -m pip install "pulldown[render]==0.5.0"
 python -m playwright install chromium
 pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable
 pulldown get https://pulldown.making-minds.ai/examples/live-board.html --detail readable --render --wait 100
@@ -231,7 +231,7 @@ publication:
 python -m pip install ".[dev]" build twine
 python -m pytest tests/ -q
 python -m build
-python scripts/smoke-installed.py --wheel dist/pulldown-0.4.2-py3-none-any.whl --output-dir website/examples/outputs
+python scripts/smoke-installed.py --wheel dist/pulldown-0.5.0-py3-none-any.whl --output-dir website/examples/outputs
 ```
 
 The smoke check creates a separate environment, installs the wheel and Chromium,

@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -36,6 +37,21 @@ def test_copied_plugin_loads_without_pulldown_or_hermes_imports(tmp_path):
     assert tool["schema"]["parameters"]["additionalProperties"] is False
     assert "untrusted" in tool["schema"]["description"]
     assert json.loads(tool["handler"]({"url": "file:///etc/passwd"}, task_id="test"))["code"] == "invalid_arguments"
+
+
+def test_catalog_runtime_uses_configured_python_and_profile_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(plugin, "__file__", str(tmp_path / "plugins" / "pulldown" / "__init__.py"))
+    context = Context({"python_path": sys.executable})
+    context.state = SimpleNamespace(data_dir=tmp_path / "plugin-data" / "pulldown")
+    assert plugin._configured_runtime(context) == {
+        "python": sys.executable, "cache_dir": str(tmp_path / "plugin-data" / "pulldown" / "cache"),
+    }
+
+
+@pytest.mark.parametrize("python", ["python", "", False, "/missing/python"])
+def test_catalog_runtime_rejects_invalid_python_paths(python):
+    with pytest.raises(plugin.PluginError):
+        plugin._configured_runtime(Context({"python_path": python}))
 
 
 @pytest.mark.parametrize("arguments", [

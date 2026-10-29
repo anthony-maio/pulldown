@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pulldown"
-version = "0.4.2"
-description = "Fetch web pages as clean Markdown for LLM agents. HTTP-first, optional Chromium rendering, CLI + Python + MCP."
+version = "0.5.0"
+description = "Fetch web pages as clean Markdown for LLM agents. HTTP-first, optional Chromium rendering, CLI + Python + MCP + Hermes."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -13,7 +13,7 @@ requires-python = ">=3.10"
 authors = [
     { name = "Anthony Maio", email = "anthony.maio@gmail.com" },
 ]
-keywords = ["llm", "agent", "markdown", "web", "fetch", "mcp", "scraping"]
+keywords = ["llm", "agent", "markdown", "web", "fetch", "mcp", "hermes", "scraping"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
